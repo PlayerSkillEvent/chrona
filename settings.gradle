@@ -1,0 +1,6 @@
+rootProject.name = "chrona"
+include("chrona-common","chrona-economy","chrona-launcher","chrona-plugin")
+include 'chrona-common'
+include 'chrona-economy'
+include 'chrona-launcher'
+include 'chrona-plugin'

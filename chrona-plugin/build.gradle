@@ -1,0 +1,100 @@
+plugins {
+    id("java")
+}
+
+group = "dev.chrona"
+version = "0.0.1-SNAPSHOT"
+def serverDir = file("C:/Users/Hans/Desktop/Chrona/Servers")
+def pluginDir   = new File(serverDir, "plugins")
+def startScript = new File(serverDir, "start-debug.bat")
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    compileOnly "io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT"
+    implementation project(":chrona-common")
+    implementation project(":chrona-economy")
+    implementation "org.postgresql:postgresql:42.7.4"
+    implementation "org.flywaydb:flyway-core:10.20.0"
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+apply plugin: 'com.github.johnrengelman.shadow'
+
+tasks.named('shadowJar') {
+    archiveClassifier.set("all")
+    from(project(":chrona-common").sourceSets.main.output)
+    from(project(":chrona-economy").sourceSets.main.output)
+    mergeServiceFiles()
+}
+
+tasks.named("build") { dependsOn tasks.named("shadowJar") }
+
+
+tasks.register("deployAndRestart") {
+    dependsOn tasks.named("shadowJar")
+    doLast {
+        // 0) Pfade prüfen
+        if (!pluginDir.exists()) {
+            throw new GradleException("Plugin dir not found: " + pluginDir.absolutePath)
+        }
+        if (!startScript.exists()) {
+            logger.warn("Start script not found: " + startScript.absolutePath)
+        }
+
+        // 1) Plugin kopieren
+        copy {
+            from(tasks.named("shadowJar"))
+            into(pluginDir)
+        }
+        println "✅ Copied plugin to ${pluginDir}"
+
+        // 2) Laufenden Paper-Prozess ermitteln & beenden (nur den mit paper-*.jar!)
+        try {
+            // Finde PID des Paper-Servers über die CommandLine
+            def findCmd = ["cmd", "/c",
+                           "wmic process where \"CommandLine like '%paper.jar%' and Name='java.exe'\" get ProcessId /value"
+            ]
+            def p = new ProcessBuilder(findCmd).redirectErrorStream(true).start()
+            def out = p.inputStream.getText("UTF-8").trim()
+            p.waitFor()
+
+            def m = (out =~ /ProcessId=(\d+)/)
+            if (m.find()) {
+                def pid = m.group(1)
+                println "⏹️  Stopping Paper (PID ${pid})..."
+                ["cmd","/c","taskkill","/PID", pid, "/F"].execute().waitFor()
+                // warte kurz, damit Port frei wird
+                Thread.sleep(1500)
+            } else {
+                println "ℹ️  No running Paper process found (skip stop)."
+            }
+        } catch (Exception e) {
+            println "⚠️  Could not stop server automatically: ${e.message}"
+        }
+
+        // 3) Server starten
+        if (startScript.exists()) {
+            println "🚀  Starting Paper..."
+            new ProcessBuilder("cmd","/c","start", "\"PaperDev\"", startScript.absolutePath)
+                    .directory(serverDir)
+                    .start()
+            println "✅ Server start triggered via ${startScript.name}"
+        } else {
+            println "❌ Start script missing: ${startScript.absolutePath}"
+        }
+    }
+}
+
+// Nach dem Build automatisch deploy & restart ausführen
+tasks.named("build") {
+    finalizedBy(tasks.named("deployAndRestart"))
+}

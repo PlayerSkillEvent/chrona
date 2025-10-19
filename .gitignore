@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ / Eclipse
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / Secrets
+.env.local
+*.log
+
+# Minecraft Server/Artefakte (nicht ins Repo!)
+Servers/
+paper-server/
+plugins/
+*.jar

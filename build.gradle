@@ -1,0 +1,31 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+processResources {
+    filesMatching("plugin.yml") {
+        expand("version": project.version)
+    }
+}
+
+allprojects {
+    group = "dev.chrona"; version = "0.0.1-SNAPSHOT"
+    repositories {
+        mavenCentral()
+        maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+    }
+    configurations.configureEach {
+        resolutionStrategy.eachDependency { d ->
+            if (d.requested.group == "org.flywaydb" && d.requested.name == "flyway-core") {
+                d.useVersion "10.20.0"
+            }
+        }
+    }
+}
+subprojects {
+    apply plugin: 'java'
+    java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+    test { useJUnitPlatform() }
+    dependencies { testImplementation "org.junit.jupiter:junit-jupiter:5.11.3" }
+}
