@@ -1,9 +1,5 @@
 package dev.chrona.plugin;
 import dev.chrona.common.log.ChronaLog;
-import dev.chrona.plugin.commands.BalanceCmd;
-import dev.chrona.plugin.commands.GrantCmd;
-import dev.chrona.plugin.commands.PayCmd;
-import dev.chrona.plugin.listeners.PlayerJoinListeners;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.plugin.java.JavaPlugin;
 import dev.chrona.common.Db;
@@ -18,11 +14,6 @@ public final class ChronaPlugin extends JavaPlugin {
         LoggingBootstrap.init(getDataFolder().toPath(), true);
 
         var logger = ChronaLog.get(ChronaPlugin.class);
-
-        getServer().getPluginManager().registerEvents(new PlayerJoinListeners(), this);
-        registerCommand("pay", new PayCmd());
-        registerCommand("grant", new GrantCmd());
-        registerCommand("balance", new BalanceCmd());
         logger.info("Chrona up.");
     }
 
