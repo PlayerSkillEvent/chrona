@@ -1,10 +1,13 @@
-package dev.chrona.plugin;
+package dev.chrona.plugin.listeners;
 
 import dev.chrona.common.Db;
+import dev.chrona.common.log.ChronaLog;
+import dev.chrona.common.log.ChronaMarkers;
 import dev.chrona.economy.infrastructure.JdbcWalletRepository;
 import dev.chrona.economy.domain.Wallet;
 import org.bukkit.event.*;
 import org.bukkit.event.player.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -14,6 +17,8 @@ public final class PlayerJoinListeners implements Listener {
     public void onPreLogin(AsyncPlayerPreLoginEvent e) {
         var id = e.getUniqueId();
         var name = e.getName();
+
+        var log = ChronaLog.get(PlayerJoinListeners.class);
 
         CompletableFuture.runAsync(() -> {
             try (var con = Db.ds().getConnection();
@@ -26,14 +31,16 @@ public final class PlayerJoinListeners implements Listener {
                 ps.executeUpdate();
             }
             catch (Exception ex) {
-                ex.printStackTrace();
+                ChronaLog.error(log, ChronaMarkers.AUDIT, ex, "Command execution failed");
             }
         });
     }
 
     @EventHandler
-    public void onJoin(PlayerJoinEvent e) {
+    public void onJoin(@NotNull PlayerJoinEvent e) {
         var p = e.getPlayer();
+
+        var log = ChronaLog.get(PlayerJoinListeners.class);
 
         CompletableFuture.runAsync(() -> {
             var repo = new JdbcWalletRepository();
@@ -46,7 +53,7 @@ public final class PlayerJoinListeners implements Listener {
                 ps.setObject(1, p.getUniqueId()); ps.executeUpdate();
             }
             catch (Exception ex) {
-                ex.printStackTrace();
+                ChronaLog.error(log, ChronaMarkers.AUDIT, ex, "Command execution failed");
             }
         });
     }

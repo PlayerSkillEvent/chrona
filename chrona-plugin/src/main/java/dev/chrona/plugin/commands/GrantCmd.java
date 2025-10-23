@@ -1,18 +1,20 @@
-package dev.chrona.plugin;
+package dev.chrona.plugin.commands;
 
 import dev.chrona.common.economy.SystemSource;
 import dev.chrona.common.economy.TransactionOrigin;
 import dev.chrona.economy.infrastructure.JdbcWalletRepository;
 import dev.chrona.economy.infrastructure.JdbcWalletService;
 import org.bukkit.command.*;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public final class GrantCmd implements CommandExecutor {
 
     @Override
-    public boolean onCommand(CommandSender s, Command c, String l, String[] a) {
+    public boolean onCommand(@NotNull CommandSender s, @NotNull Command c, @NotNull String l, String[] a) {
         if (!s.hasPermission("chrona.grant")) {
             s.sendMessage("§cNo permission");
             return true;
@@ -48,7 +50,7 @@ public final class GrantCmd implements CommandExecutor {
             var id = target.getUniqueId();
 
             service.credit(id, amt, UUID.randomUUID(), TransactionOrigin.of(SystemSource.ADMIN_GRANT));
-        }).whenComplete((ok, ex) -> s.getServer().getScheduler().runTask(s.getServer().getPluginManager().getPlugin("Chrona"), () -> {
+        }).whenComplete((ok, ex) -> s.getServer().getScheduler().runTask(Objects.requireNonNull(s.getServer().getPluginManager().getPlugin("Chrona")), () -> {
             if (ex != null)
                 s.sendMessage("§c/grant failed: " + ex.getMessage());
             else {

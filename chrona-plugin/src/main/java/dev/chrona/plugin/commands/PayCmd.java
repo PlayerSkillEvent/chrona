@@ -1,18 +1,20 @@
-package dev.chrona.plugin;
+package dev.chrona.plugin.commands;
 
 import dev.chrona.common.economy.EconomySource;
 import dev.chrona.common.economy.TransactionOrigin;
 import dev.chrona.economy.infrastructure.JdbcTransferService;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public final class PayCmd implements CommandExecutor {
 
     @Override
-    public boolean onCommand(CommandSender s, Command c, String l, String[] a) {
+    public boolean onCommand(@NotNull CommandSender s, @NotNull Command c, @NotNull String l, String[] a) {
         if (!(s instanceof Player p))
             return true;
 
@@ -51,7 +53,7 @@ public final class PayCmd implements CommandExecutor {
         var transferId = UUID.randomUUID();
         var origin = TransactionOrigin.of(EconomySource.PLAYER_TRADE);
         CompletableFuture.runAsync(() -> svc.transfer(p.getUniqueId(), target.getUniqueId(), amt, transferId, origin))
-                .whenComplete((ok, ex) -> p.getServer().getScheduler().runTask(p.getServer().getPluginManager().getPlugin("Chrona"), () -> {
+                .whenComplete((ok, ex) -> p.getServer().getScheduler().runTask(Objects.requireNonNull(p.getServer().getPluginManager().getPlugin("Chrona")), () -> {
                     if (ex != null)
                         p.sendMessage("§c/pay failed: " + ex.getMessage());
                     else {

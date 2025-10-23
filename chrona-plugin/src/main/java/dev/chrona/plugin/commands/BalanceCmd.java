@@ -1,15 +1,17 @@
-package dev.chrona.plugin;
+package dev.chrona.plugin.commands;
 import dev.chrona.economy.domain.Wallet;
 import dev.chrona.economy.infrastructure.JdbcWalletRepository;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public final class BalanceCmd implements CommandExecutor {
 
-    @Override public boolean onCommand(CommandSender s, Command c, String l, String[] a) {
+    @Override
+    public boolean onCommand(@NotNull CommandSender s, @NotNull Command c, @NotNull String l, String[] a) {
         if(!(s instanceof Player p))
             return true;
 
