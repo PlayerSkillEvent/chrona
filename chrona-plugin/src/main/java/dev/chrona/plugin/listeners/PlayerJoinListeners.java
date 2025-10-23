@@ -42,6 +42,8 @@ public final class PlayerJoinListeners implements Listener {
 
         var log = ChronaLog.get(PlayerJoinListeners.class);
 
+        e.joinMessage(null);
+
         CompletableFuture.runAsync(() -> {
             var repo = new JdbcWalletRepository();
             var w = repo.find(p.getUniqueId()).orElse(null);
