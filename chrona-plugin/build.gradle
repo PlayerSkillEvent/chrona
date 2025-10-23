@@ -5,9 +5,8 @@ plugins {
 
 group = "dev.chrona"
 version = "0.0.1-SNAPSHOT"
-def serverDir = file("C:/Users/Hans/Desktop/Chrona/Servers")
-def pluginDir   = new File(serverDir, "plugins")
-def startScript = new File(serverDir, "start-debug.bat")
+def serverDirProp = findProperty("serverDir") ?: null
+def isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows()
 
 repositories {
     mavenCentral()
@@ -43,61 +42,30 @@ tasks.named("build") { dependsOn tasks.named("shadowJar") }
 
 
 tasks.register("deployAndRestart") {
-    dependsOn tasks.named("shadowJar")
+    onlyIf { serverDirProp != null && isWindows }
     doLast {
-        // 0) Pfade prüfen
-        if (!pluginDir.exists()) {
-            throw new GradleException("Plugin dir not found: " + pluginDir.absolutePath)
-        }
-        if (!startScript.exists()) {
-            logger.warn("Start script not found: " + startScript.absolutePath)
-        }
+        def serverDir = file(serverDirProp)
+        def pluginDir = new File(serverDir, "plugins")
+        def startScript = new File(serverDir, "start-debug.bat")
 
-        // 1) Plugin kopieren
         copy {
-            from(tasks.named("shadowJar"))
+            from(tasks.shadowJar)
             into(pluginDir)
         }
-        println "✅ Copied plugin to ${pluginDir}"
-
-        // 2) Laufenden Paper-Prozess ermitteln & beenden (nur den mit paper-*.jar!)
-        try {
-            // Finde PID des Paper-Servers über die CommandLine
-            def findCmd = ["cmd", "/c",
-                           "wmic process where \"CommandLine like '%paper.jar%' and Name='java.exe'\" get ProcessId /value"
-            ]
-            def p = new ProcessBuilder(findCmd).redirectErrorStream(true).start()
-            def out = p.inputStream.getText("UTF-8").trim()
-            p.waitFor()
-
-            def m = (out =~ /ProcessId=(\d+)/)
-            if (m.find()) {
-                def pid = m.group(1)
-                println "⏹️  Stopping Paper (PID ${pid})..."
-                ["cmd","/c","taskkill","/PID", pid, "/F"].execute().waitFor()
-                // warte kurz, damit Port frei wird
-                Thread.sleep(1500)
-            } else {
-                println "ℹ️  No running Paper process found (skip stop)."
-            }
-        } catch (Exception e) {
-            println "⚠️  Could not stop server automatically: ${e.message}"
-        }
-
-        // 3) Server starten
         if (startScript.exists()) {
-            println "🚀  Starting Paper..."
-            new ProcessBuilder("cmd","/c","start", "\"PaperDev\"", startScript.absolutePath)
+            new ProcessBuilder("cmd","/c","start","\"PaperDev\"", startScript.absolutePath)
                     .directory(serverDir)
                     .start()
-            println "✅ Server start triggered via ${startScript.name}"
+            println "✅ Server restart triggered."
         } else {
-            println "❌ Start script missing: ${startScript.absolutePath}"
+            println "ℹ️ Start script missing; skipped."
         }
     }
 }
+tasks.named("build") { finalizedBy("deployAndRestart") }
 
-// Nach dem Build automatisch deploy & restart ausführen
-tasks.named("build") {
-    finalizedBy(tasks.named("deployAndRestart"))
+tasks.processResources {
+    filesMatching("plugin.yml") {
+        expand(version: project.version)
+    }
 }
