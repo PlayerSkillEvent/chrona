@@ -3,12 +3,6 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-processResources {
-    filesMatching("plugin.yml") {
-        expand("version": project.version)
-    }
-}
-
 allprojects {
     group = "dev.chrona"; version = "0.0.1-SNAPSHOT"
     repositories {

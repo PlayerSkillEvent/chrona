@@ -1,0 +1,8 @@
+id: MINER
+display: "Miner"
+rewards:
+  DIAMOND_ORE: 50
+  GOLD_ORE: 20
+  IRON_ORE: 10
+levelBonus:
+  basePerLevel: 2

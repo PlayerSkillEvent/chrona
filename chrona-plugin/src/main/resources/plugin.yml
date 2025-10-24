@@ -2,4 +2,14 @@ name: Chrona
 main: dev.chrona.plugin.ChronaPlugin
 version: ${version}
 api-version: '1.21'
-
+commands:
+  wallet:
+    description: Show your balance
+    usage: /wallet
+  pay:
+      description: Pay another player
+      usage: /pay <player> <amount>
+  econ:
+      description: Admin economy ops
+      permission: chrona.admin
+      usage: /econ <mint|burn> <player> <amount>

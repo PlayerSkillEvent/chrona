@@ -1,6 +1,5 @@
-package dev.chrona.plugin;
+package dev.chrona.common.log;
 
-import dev.chrona.common.log.ChronaLog;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;

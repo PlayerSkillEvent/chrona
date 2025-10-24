@@ -5,7 +5,6 @@ Minecraft RP Server – multi-module Gradle project.
 - chrona-common
 - chrona-economy
 - chrona-plugin
-- chrona-launcher
 
 ## Build
 ```bash

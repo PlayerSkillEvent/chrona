@@ -2,7 +2,6 @@ package dev.chrona.common;
 
 import com.zaxxer.hikari.*;
 import org.flywaydb.core.Flyway;
-import org.flywaydb.core.api.ResourceProvider;
 
 import javax.sql.DataSource;
 
@@ -24,6 +23,13 @@ public final class Db {
         }
 
         return DS;
+    }
+
+    public static void close() {
+        if (DS != null) {
+            DS.close();
+            DS = null;
+        }
     }
 
     public static void migrate(ClassLoader cl, String... locs) {

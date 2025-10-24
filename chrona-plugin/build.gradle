@@ -14,32 +14,29 @@ repositories {
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
     compileOnly "io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT"
     implementation project(":chrona-common")
     implementation project(":chrona-economy")
+    implementation project(":chrona-jobs")
     implementation "org.postgresql:postgresql:42.7.4"
     implementation "org.flywaydb:flyway-core:10.20.0"
     implementation 'org.apache.logging.log4j:log4j-core:2.24.1'
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.1'
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
+tasks.test { useJUnitPlatform() }
 
 apply plugin: 'com.github.johnrengelman.shadow'
 
 tasks.named('shadowJar') {
     archiveClassifier.set("all")
+    dependsOn(":chrona-common:processResources", ":chrona-economy:processResources", ":chrona-jobs:processResources")
     from(project(":chrona-common").sourceSets.main.output)
     from(project(":chrona-economy").sourceSets.main.output)
+    from(project(":chrona-jobs").sourceSets.main.output)
     mergeServiceFiles()
 }
-
 tasks.named("build") { dependsOn tasks.named("shadowJar") }
-
 
 tasks.register("deployAndRestart") {
     onlyIf { serverDirProp != null && isWindows }
@@ -47,15 +44,10 @@ tasks.register("deployAndRestart") {
         def serverDir = file(serverDirProp)
         def pluginDir = new File(serverDir, "plugins")
         def startScript = new File(serverDir, "start-debug.bat")
-
-        copy {
-            from(tasks.shadowJar)
-            into(pluginDir)
-        }
+        copy { from(tasks.shadowJar); into(pluginDir) }
         if (startScript.exists()) {
             new ProcessBuilder("cmd","/c","start","\"PaperDev\"", startScript.absolutePath)
-                    .directory(serverDir)
-                    .start()
+                    .directory(serverDir).start()
             println "✅ Server restart triggered."
         } else {
             println "ℹ️ Start script missing; skipped."
@@ -65,7 +57,5 @@ tasks.register("deployAndRestart") {
 tasks.named("build") { finalizedBy("deployAndRestart") }
 
 tasks.processResources {
-    filesMatching("plugin.yml") {
-        expand(version: project.version)
-    }
+    filesMatching("plugin.yml") { expand(version: project.version) }
 }
