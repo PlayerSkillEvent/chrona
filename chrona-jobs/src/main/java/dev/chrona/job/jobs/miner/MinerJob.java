@@ -57,8 +57,14 @@ public final class MinerJob implements Job {
     }
 
     static final class MinerListener implements Listener {
-        private final JobRuntime runtime; private final MinerJob job;
-        MinerListener(JobRuntime r, MinerJob j) { this.runtime = r; this.job = j; }
+
+        private final JobRuntime runtime;
+        private final MinerJob job;
+
+        MinerListener(JobRuntime r, MinerJob j) {
+            this.runtime = r;
+            this.job = j;
+        }
 
         @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
         public void onBreak(BlockBreakEvent e) {
