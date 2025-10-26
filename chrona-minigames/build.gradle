@@ -14,7 +14,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     implementation project(':chrona-common')
     implementation project(':chrona-economy')
-    compileOnly "io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT"
+    compileOnly "io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT"
 }
 
 tasks.test {

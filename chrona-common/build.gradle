@@ -20,7 +20,7 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.1'
     implementation project(":chrona-economy")
     implementation project(":chrona-minigames")
-    compileOnly "io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT"
+    compileOnly "io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT"
     compileOnly 'net.dmulloy2:ProtocolLib:5.4.0'
 }
 
