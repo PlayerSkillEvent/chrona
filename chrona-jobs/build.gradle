@@ -8,6 +8,7 @@ repositories { mavenCentral() }
 dependencies {
     implementation project(':chrona-common')
     implementation project(':chrona-economy')
+    implementation project(':chrona-minigames')
     compileOnly "io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT"
     implementation "org.yaml:snakeyaml:2.2"
     implementation "org.postgresql:postgresql:42.7.4" // für evtl. DS Utils

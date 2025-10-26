@@ -9,10 +9,11 @@ import org.bukkit.plugin.Plugin;
 public final class Minigames {
     private static MinigameManager mgr;
 
-    public static void init(Plugin plugin) {
+    public static MinigameManager init(Plugin plugin) {
         mgr = new MinigameManager(plugin);
         mgr.register(new TimingBarGame(plugin));
         mgr.register(new PressQTEGame(plugin));
+        return mgr;
     }
 
     public static MinigameManager manager() {

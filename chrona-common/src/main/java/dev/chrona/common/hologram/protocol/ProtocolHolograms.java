@@ -6,7 +6,6 @@ import dev.chrona.common.hologram.api.HologramHandle;
 import dev.chrona.common.hologram.api.HologramService;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +29,7 @@ public final class ProtocolHolograms implements HologramService {
     public HologramHandle createFor(Player viewer, Location loc, List<String> lines) {
         var h = new PacketHologram(pm, loc, lines);
         holos.put(h.id(), h);
-        h.addViewer(viewer); // 🔑 onlyFor: sofort NUR diesem Spieler spawnen
+        h.addViewer(viewer);
         return h;
     }
 

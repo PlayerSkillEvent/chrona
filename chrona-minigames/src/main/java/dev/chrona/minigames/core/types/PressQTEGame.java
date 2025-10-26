@@ -25,7 +25,9 @@ public final class PressQTEGame implements Minigame, Listener {
         this.plugin = plugin;
     }
 
-    @Override public String id() { return "PRESS_QTE"; }
+    @Override public String id() {
+        return "PRESS_QTE";
+    }
 
     @Override
     public CompletableFuture<MinigameResult> start(Player p, Map<String, Object> data) {

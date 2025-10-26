@@ -1,6 +1,5 @@
 package dev.chrona.plugin;
 
-import dev.chrona.common.ChronaServices;
 import dev.chrona.common.hologram.protocol.ProtocolHolograms;
 import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.log.LoggingBootstrap;
@@ -9,6 +8,7 @@ import dev.chrona.economy.PlayerRepo;
 import dev.chrona.job.core.*;
 import dev.chrona.minigames.core.MinigameManager;
 import dev.chrona.plugin.commands.EconCmd;
+import dev.chrona.plugin.commands.MinerGiveCmd;
 import dev.chrona.plugin.commands.PayCmd;
 import dev.chrona.plugin.commands.WalletCmd;
 import dev.chrona.plugin.listeners.JoinListener;
@@ -23,7 +23,6 @@ import java.util.Objects;
 
 public final class ChronaPlugin extends JavaPlugin {
 
-    ProtocolHolograms holoService;
 
     @Override
     public void onEnable() {
@@ -34,24 +33,22 @@ public final class ChronaPlugin extends JavaPlugin {
         DataSource ds = getDs();
         var logger = ChronaLog.get(ChronaPlugin.class);
 
-        holoService = new ProtocolHolograms();
+        var holoService = new ProtocolHolograms();
         var econ = new PgEconomy(ds);
-        ProtocolHolograms holo = new ProtocolHolograms();
-        var mini = new MinigameManager(this);
-
-        ChronaServices.init(this, ds, econ, holo, mini);
+        MinigameManager minigames = Minigames.init(this);
 
         var playerRepo = new PlayerRepo(ds);
 
         registerCommand("wallet", new WalletCmd(econ));
         registerCommand("pay", new PayCmd(econ));
         registerCommand("econ", new EconCmd(econ));
+        registerCommand("minergive", new MinerGiveCmd());
 
         registerEvent(new JoinListener(this, playerRepo));
 
         String season = getConfig().getString("season", "S1");
         JobConfigProvider cfgProvider = new ClasspathSeasonConfigProvider(season, getClassLoader(), getDataFolder().toPath());
-        JobContext ctx = new JobContext(ds, econ, cfgProvider);
+        JobContext ctx = new JobContext(this, ds, econ, minigames, holoService, cfgProvider);
         JobRuntime runtime = new JobRewardRuntime(econ, ds, () -> season);
 
         var enabled = getConfig().getStringList("jobs.enabled");
@@ -65,10 +62,7 @@ public final class ChronaPlugin extends JavaPlugin {
             job.listeners(runtime).forEach(l -> getServer().getPluginManager().registerEvents(l, this));
         });
 
-       Minigames.init(this);
-
-
-        logger.info("Chrona up.");
+       logger.info("Chrona up.");
     }
 
     private static DataSource getDs() {

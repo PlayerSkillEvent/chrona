@@ -26,12 +26,18 @@ public final class MinigameManager {
         Bukkit.getPluginManager().registerEvents(router, plugin);
     }
 
-    public void register(Minigame game) { registry.put(game.id(), game); }
-    public Optional<Minigame> get(String id) { return Optional.ofNullable(registry.get(id)); }
+    public void register(Minigame game) {
+        registry.put(game.id(), game);
+    }
+
+    public Optional<Minigame> get(String id) {
+        return Optional.ofNullable(registry.get(id));
+    }
 
     public CompletableFuture<MinigameResult> start(String id, Player p, Map<String,Object> data) {
         var game = registry.get(id);
-        if (game == null) throw new IllegalArgumentException("Unknown minigame: " + id);
+        if (game == null)
+            throw new IllegalArgumentException("Unknown minigame: " + id);
         cancelActive(p.getUniqueId(), "replaced");
         var future = game.start(p, data);
         var session = new MinigameSession(id, p.getUniqueId(), System.currentTimeMillis(), future);

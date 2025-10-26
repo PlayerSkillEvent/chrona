@@ -10,6 +10,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.slf4j.Logger;
 
+import java.util.List;
+
 public final class JoinListener implements Listener {
     private final ChronaPlugin plugin;
     private final PlayerRepo repo;
@@ -23,11 +25,11 @@ public final class JoinListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
-        var p = e.getPlayer();
-        var id = p.getUniqueId();
-        var name = p.getName();
-        p.locale();
-        var locale = p.locale().toLanguageTag();
+        var player = e.getPlayer();
+        var id = player.getUniqueId();
+        var name = player.getName();
+        player.locale();
+        var locale = player.locale().toLanguageTag();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {

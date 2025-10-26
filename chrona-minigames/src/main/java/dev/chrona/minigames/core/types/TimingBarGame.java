@@ -17,16 +17,19 @@ public final class TimingBarGame implements Minigame, Listener {
     private final Plugin plugin;
     public TimingBarGame(Plugin plugin) { this.plugin = plugin; }
 
-    @Override public String id() { return "TIMING_BAR"; }
+    @Override
+    public String id() {
+        return "TIMING_BAR";
+    }
 
     @Override
     public CompletableFuture<MinigameResult> start(Player p, Map<String, Object> data) {
         var result = new CompletableFuture<MinigameResult>();
 
-        double windowStart = getD(data, "windowStart", 0.40);
-        double windowEnd   = getD(data, "windowEnd",   0.60);
-        double speedPerTick = getD(data, "speed", 0.018); // ~2s hin/retour
-        int timeoutTicks = (int) Math.round(getD(data, "timeoutTicks", 200)); // 10s
+        double windowStart = getData(data, "windowStart", 0.40);
+        double windowEnd   = getData(data, "windowEnd",   0.60);
+        double speedPerTick = getData(data, "speed", 0.018); // ~2s hin/retour
+        int timeoutTicks = (int) Math.round(getData(data, "timeoutTicks", 200)); // 10s
 
         var bar = Bukkit.createBossBar("§eClick to stop!", BarColor.YELLOW, BarStyle.SEGMENTED_10);
         bar.addPlayer(p);
@@ -99,7 +102,7 @@ public final class TimingBarGame implements Minigame, Listener {
     private Runnable complete = () -> {};
     private void cleanup() { voidCleanup.run(); }
 
-    private static double getD(Map<String,Object> m, String k, double def) {
+    private static double getData(Map<String,Object> m, String k, double def) {
         if (m == null) return def;
         Object v = m.get(k);
         if (v instanceof Number n) return n.doubleValue();
