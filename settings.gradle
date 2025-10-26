@@ -1,2 +1,3 @@
 rootProject.name = "chrona"
 include("chrona-common", "chrona-economy", 'chrona-minigames', "chrona-jobs", "chrona-plugin")
+include 'chrona-hologram'

@@ -146,7 +146,7 @@ public final class PressQTEGame implements Minigame, Listener {
         return it;
     }
     private static List<Integer> randomSequence(int steps) {
-        var slots = new ArrayList<Integer>(List.of(1,3,5,7)); // gute Klick-Slots
+        var slots = new ArrayList<>(List.of(1,3,5,7));
         java.util.Collections.shuffle(slots);
         return slots.subList(0, Math.min(steps, slots.size()));
     }

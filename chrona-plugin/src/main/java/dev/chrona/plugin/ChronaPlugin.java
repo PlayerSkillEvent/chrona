@@ -1,10 +1,13 @@
 package dev.chrona.plugin;
 
+import dev.chrona.common.ChronaServices;
+import dev.chrona.common.hologram.protocol.ProtocolHolograms;
 import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.log.LoggingBootstrap;
 import dev.chrona.economy.PgEconomy;
 import dev.chrona.economy.PlayerRepo;
 import dev.chrona.job.core.*;
+import dev.chrona.minigames.core.MinigameManager;
 import dev.chrona.plugin.commands.EconCmd;
 import dev.chrona.plugin.commands.PayCmd;
 import dev.chrona.plugin.commands.WalletCmd;
@@ -20,6 +23,8 @@ import java.util.Objects;
 
 public final class ChronaPlugin extends JavaPlugin {
 
+    ProtocolHolograms holoService;
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -29,7 +34,13 @@ public final class ChronaPlugin extends JavaPlugin {
         DataSource ds = getDs();
         var logger = ChronaLog.get(ChronaPlugin.class);
 
+        holoService = new ProtocolHolograms();
         var econ = new PgEconomy(ds);
+        ProtocolHolograms holo = new ProtocolHolograms();
+        var mini = new MinigameManager(this);
+
+        ChronaServices.init(this, ds, econ, holo, mini);
+
         var playerRepo = new PlayerRepo(ds);
 
         registerCommand("wallet", new WalletCmd(econ));
