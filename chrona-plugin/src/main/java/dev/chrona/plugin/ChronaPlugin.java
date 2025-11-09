@@ -3,6 +3,7 @@ package dev.chrona.plugin;
 import dev.chrona.common.hologram.protocol.ProtocolHolograms;
 import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.log.LoggingBootstrap;
+import dev.chrona.common.npc.protocol.ProtocolNpcs;
 import dev.chrona.economy.PgEconomy;
 import dev.chrona.economy.PlayerRepo;
 import dev.chrona.job.core.*;
@@ -23,6 +24,11 @@ import java.util.Objects;
 
 public final class ChronaPlugin extends JavaPlugin {
 
+    private ProtocolHolograms holoService;
+    private PgEconomy econ;
+    private MinigameManager minigames;
+    private ProtocolNpcs npcs;
+    private PlayerRepo playerRepo;
 
     @Override
     public void onEnable() {
@@ -33,11 +39,11 @@ public final class ChronaPlugin extends JavaPlugin {
         DataSource ds = getDs();
         var logger = ChronaLog.get(ChronaPlugin.class);
 
-        var holoService = new ProtocolHolograms();
-        var econ = new PgEconomy(ds);
-        MinigameManager minigames = Minigames.init(this);
-
-        var playerRepo = new PlayerRepo(ds);
+        holoService = new ProtocolHolograms();
+        econ = new PgEconomy(ds);
+        minigames = Minigames.init(this);
+        npcs = new ProtocolNpcs(this);
+        playerRepo = new PlayerRepo(ds);
 
         registerCommand("wallet", new WalletCmd(econ));
         registerCommand("pay", new PayCmd(econ));
@@ -45,6 +51,7 @@ public final class ChronaPlugin extends JavaPlugin {
         registerCommand("minergive", new MinerGiveCmd());
 
         registerEvent(new JoinListener(this, playerRepo));
+        registerEvent(npcs);
 
         String season = getConfig().getString("season", "S1");
         JobConfigProvider cfgProvider = new ClasspathSeasonConfigProvider(season, getClassLoader(), getDataFolder().toPath());
@@ -80,5 +87,25 @@ public final class ChronaPlugin extends JavaPlugin {
 
     private void registerCommand(String cmd, CommandExecutor executor) {
         Objects.requireNonNull(getCommand(cmd)).setExecutor(executor);
+    }
+
+    public ProtocolHolograms getHoloService() {
+        return holoService;
+    }
+
+    public MinigameManager getMinigames() {
+        return minigames;
+    }
+
+    public PgEconomy getEcon() {
+        return econ;
+    }
+
+    public PlayerRepo getPlayerRepo() {
+        return playerRepo;
+    }
+
+    public ProtocolNpcs getNpcs() {
+        return npcs;
     }
 }
