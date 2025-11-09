@@ -18,3 +18,9 @@ commands:
         description: Give Waterstrike to a miner
         permission: chrona.admin
         usage: /minergive
+  npcpath:
+    description: Records NPC paths
+    usage: /npcpath
+  npc:
+    description: NPC management
+    usage: /npc

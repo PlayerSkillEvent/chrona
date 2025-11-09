@@ -3,23 +3,26 @@ package dev.chrona.plugin;
 import dev.chrona.common.hologram.protocol.ProtocolHolograms;
 import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.log.LoggingBootstrap;
+import dev.chrona.common.npc.api.NpcPersistence;
+import dev.chrona.common.npc.api.SkinService;
+import dev.chrona.common.npc.protocol.NpcController;
 import dev.chrona.common.npc.protocol.ProtocolNpcs;
 import dev.chrona.economy.PgEconomy;
 import dev.chrona.economy.PlayerRepo;
 import dev.chrona.job.core.*;
 import dev.chrona.minigames.core.MinigameManager;
-import dev.chrona.plugin.commands.EconCmd;
-import dev.chrona.plugin.commands.MinerGiveCmd;
-import dev.chrona.plugin.commands.PayCmd;
-import dev.chrona.plugin.commands.WalletCmd;
+import dev.chrona.plugin.commands.*;
 import dev.chrona.plugin.listeners.JoinListener;
 import dev.chrona.minigames.Minigames;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import dev.chrona.common.Db;
 
 import javax.sql.DataSource;
+import java.util.List;
 import java.util.Objects;
 
 public final class ChronaPlugin extends JavaPlugin {
@@ -29,6 +32,8 @@ public final class ChronaPlugin extends JavaPlugin {
     private MinigameManager minigames;
     private ProtocolNpcs npcs;
     private PlayerRepo playerRepo;
+    private NpcController npcCtrl;
+    private NpcPersistence persistence;
 
     @Override
     public void onEnable() {
@@ -42,16 +47,40 @@ public final class ChronaPlugin extends JavaPlugin {
         holoService = new ProtocolHolograms();
         econ = new PgEconomy(ds);
         minigames = Minigames.init(this);
-        npcs = new ProtocolNpcs(this);
+        npcCtrl = new NpcController();
+        npcs = new ProtocolNpcs(this, npcCtrl);
         playerRepo = new PlayerRepo(ds);
+
+        SkinService skins = new SkinService();
+        NpcPersistence.NpcFactory factory = (loc, name, skin) -> getNpcs().create(loc, name, skin);
+        NpcCommand npcCmd = new NpcCommand(this, factory, npcCtrl, skins);
+        this.persistence = new NpcPersistence(this, npcCtrl, factory);
+
+        List<NpcPersistence.NpcRuntime> runtimes = persistence.loadAllAndRecreate();
+
+        Bukkit.getScheduler().runTask(this, () -> {
+            for (var name : npcCtrl.listNames()) {
+                var npc = npcCtrl.get(name);
+                for (Player player : Bukkit.getOnlinePlayers())
+                    npc.addViewer(player);
+            }
+        });
+
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            persistence.saveAll(npcCtrl.runtimes());
+        }, 1200L, 1200L);
 
         registerCommand("wallet", new WalletCmd(econ));
         registerCommand("pay", new PayCmd(econ));
         registerCommand("econ", new EconCmd(econ));
         registerCommand("minergive", new MinerGiveCmd());
+        registerCommand("npcpath", new NpcPathCommand(this));
+        registerCommand("npc", npcCmd);
 
         registerEvent(new JoinListener(this, playerRepo));
         registerEvent(npcs);
+
+        Objects.requireNonNull(getCommand("npc")).setTabCompleter(npcCmd);
 
         String season = getConfig().getString("season", "S1");
         JobConfigProvider cfgProvider = new ClasspathSeasonConfigProvider(season, getClassLoader(), getDataFolder().toPath());
@@ -83,6 +112,11 @@ public final class ChronaPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         Db.close();
+        persistence.saveAll(npcCtrl.runtimes());
+        for (var name : npcCtrl.listNames()) {
+            var npc = npcCtrl.get(name);
+            npc.destroy();
+        }
     }
 
     private void registerCommand(String cmd, CommandExecutor executor) {

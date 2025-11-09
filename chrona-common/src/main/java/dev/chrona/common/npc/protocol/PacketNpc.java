@@ -4,8 +4,7 @@ import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.wrappers.*;
 import dev.chrona.common.log.ChronaLog;
-import dev.chrona.common.npc.api.NpcHandle;
-import dev.chrona.common.npc.api.Skin;
+import dev.chrona.common.npc.api.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.*;
@@ -18,7 +17,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-final class PacketNpc {
+public final class PacketNpc {
     private static final AtomicInteger ENTITY_ID = new AtomicInteger(300000);
     private static final double LOOK_RADIUS_SQ = 12*12;
 
@@ -27,18 +26,25 @@ final class PacketNpc {
     private volatile String name;
     private volatile Skin skin;
     private volatile Location loc;
+    private volatile RotationSource rotationSource = null;
+    private volatile PathRunner pathRunner;
 
     private final Plugin plugin;
     private final Logger logger;
     private final ProtocolManager pm;
+    private final NpcController controller;
+
+    private final NpcController.LookMode lookMode = NpcController.LookMode.FIXED;
+    private String currentPathName;
 
     /** pro Viewer: entityId + TabShownFlag */
     private final Map<UUID, ViewerState> viewers = new ConcurrentHashMap<>();
 
-    PacketNpc(Plugin plugin, ProtocolManager pm, Location loc, String name, Skin skin) {
+    PacketNpc(Plugin plugin, ProtocolManager pm, NpcController controller, Location loc, String name, Skin skin) {
         this.plugin = plugin;
         this.logger = ChronaLog.get(PacketNpc.class);
         this.pm = pm;
+        this.controller = controller;
         this.loc = loc.clone();
         this.name = name;
         this.skin = skin;
@@ -106,6 +112,11 @@ final class PacketNpc {
             }
 
             @Override
+            public void setRotationSource(RotationSource source) {
+                self.setRotationSource(source);
+            }
+
+            @Override
             public void teleport(Location to) {
                 self.teleport(to);
             }
@@ -116,8 +127,31 @@ final class PacketNpc {
             }
 
             @Override
+            public void runPath(Path path) {
+                self.runPath(path);
+            }
+
+            @Override
+            public void stopPath() {
+                self.stopPath();
+            }
+
+            @Override
+            public void pausePath(boolean pause) {
+                self.pausePath(pause);
+            }
+
+            @Override
             public void destroy() {
                 self.destroyAll();
+            }
+
+            @Override
+            public NpcPersistence.NpcRuntime state() { return self.snapshot(); }
+
+            @Override
+            public void resumePath(Path path, int index, int dir, long waitMs) {
+                self.resumePath(path, index, dir, waitMs);
             }
         };
     }
@@ -146,6 +180,8 @@ final class PacketNpc {
             destroyFor(p);
             spawnFor(p);
         }
+        controller.onSkinSet(asHandle(), s);
+
     }
 
     private void setEquipment(NpcHandle.EquipmentSlot slot, ItemStack item) {
@@ -186,8 +222,70 @@ final class PacketNpc {
         viewers.clear();
     }
 
-    // ---------- Spawning per Viewer ----------
+    public void setRotationSource(RotationSource src) {
+        this.rotationSource = src;
+    }
 
+    public synchronized void runPath(Path path) {
+        stopPath();
+        this.currentPathName = path.name;
+        this.pathRunner = new PathRunner(path);
+        controller.onPathStarted(asHandle(), path.name, path);
+        this.pathRunner.start();
+    }
+
+    public synchronized void stopPath() {
+        if (pathRunner != null) {
+            pathRunner.stop();
+            pathRunner = null;
+            controller.onPathStopped(asHandle());
+        }
+    }
+
+    public synchronized void pausePath(boolean pause) {
+        if (pathRunner != null)
+            pathRunner.setPaused(pause);
+    }
+
+    private void resumePath(Path p, int index, int dir, long waitMs) {
+        stopPath();
+        this.pathRunner = new PathRunner(p);
+        this.pathRunner.idx = Math.min(Math.max(0, index), p.points.size()-1);
+        this.pathRunner.dir = (dir == -1 ? -1 : 1);
+        if (waitMs > 0) this.pathRunner.waitUntil = System.currentTimeMillis() + waitMs;
+        this.pathRunner.start();
+    }
+
+    public NpcPersistence.NpcRuntime snapshot() {
+        var rt = new NpcPersistence.NpcRuntime(asHandle());
+
+        rt.internalId = this.id;          // interne UUID
+        rt.skin = this.skin;              // aktueller Skin
+        rt.lookMode = this.lookMode;      // falls du LookMode+Radius im NPC speicherst
+        double lookRadius = 12.0;
+        rt.lookRadius = lookRadius;  // (wenn nicht, setz Standard 12)
+
+        // Position
+        var l = this.loc.clone();
+        rt.npc.teleport(l);               // stellt sicher, dass .location() konsistent ist
+
+        // Laufender Path
+        if (this.pathRunner != null) {
+            rt.pathRunning = true;
+            rt.pathName = this.currentPathName;  // der zuletzt gestartete Pfadname
+            rt.pathSpeed = this.pathRunner.path.speedBlocksPerSec;
+            rt.pathLoop = this.pathRunner.path.loop;
+            rt.pathIndex = this.pathRunner.idx;
+            rt.pathDir = this.pathRunner.dir;
+
+            long now = System.currentTimeMillis();
+            rt.waitRemainingMs = Math.max(0, this.pathRunner.waitUntil - now);
+        }
+
+        return rt;
+    }
+
+    // ---------- Spawning per Viewer ----------
 
     private void spawnFor(Player viewer) {
         if (viewer == null || !viewer.isOnline() || viewers.containsKey(viewer.getUniqueId()))
@@ -350,9 +448,28 @@ final class PacketNpc {
         }
     }
 
-    private static byte toAngleByte(float deg) {
-        float norm = (deg % 360f + 360f) % 360f;
-        return (byte) (int) Math.floor(norm * 256f / 360f);
+    private void sendHeadRotationOnly(Player viewer, int entityId, float yaw) {
+        try {
+            var head = pm.createPacket(PacketType.Play.Server.ENTITY_HEAD_ROTATION);
+            head.getIntegers().write(0, entityId);
+            head.getBytes().write(0, toAngleByte(yaw));
+            pm.sendServerPacket(viewer, head);
+        } catch (Exception e) {
+            logger.error("HEAD_ROTATION failed", e);
+        }
+    }
+
+    private void sendEntityLookOnly(Player viewer, int entityId, float yaw, float pitch) {
+        try {
+            var look = pm.createPacket(PacketType.Play.Server.ENTITY_LOOK);
+            look.getIntegers().write(0, entityId);
+            look.getBytes().write(0, toAngleByte(yaw));
+            look.getBytes().write(1, toAngleByte(pitch));
+            look.getBooleans().write(0, true); // onGround
+            pm.sendServerPacket(viewer, look);
+        } catch (Exception e) {
+            logger.error("ENTITY_LOOK (only) failed", e);
+        }
     }
 
     private void sendEquipment(Player viewer, Map<NpcHandle.EquipmentSlot, ItemStack> items) {
@@ -402,6 +519,41 @@ final class PacketNpc {
         }
     }
 
+    private void sendRelMoveLook(Player viewer, int entityId, double dx, double dy, double dz, float yaw, float pitch) {
+        try {
+            int x = (int) Math.round(dx * 4096.0);
+            int y = (int) Math.round(dy * 4096.0);
+            int z = (int) Math.round(dz * 4096.0);
+
+            var pkt = pm.createPacket(PacketType.Play.Server.REL_ENTITY_MOVE_LOOK);
+            pkt.getIntegers().write(0, entityId);
+            pkt.getShorts().write(0, (short) x);
+            pkt.getShorts().write(1, (short) y);
+            pkt.getShorts().write(2, (short) z);
+            pkt.getBytes().write(0, toAngleByte(yaw));
+            pkt.getBytes().write(1, toAngleByte(pitch));
+            pkt.getBooleans().write(0, true); // onGround
+
+            pm.sendServerPacket(viewer, pkt);
+
+            var head = pm.createPacket(PacketType.Play.Server.ENTITY_HEAD_ROTATION);
+            head.getIntegers().write(0, entityId);
+            head.getBytes().write(0, toAngleByte(yaw));
+            pm.sendServerPacket(viewer, head);
+        } catch (Exception e) {
+            logger.error("REL_ENTITY_MOVE_LOOK failed", e);
+        }
+    }
+
+    private static byte toAngleByte(float deg) {
+        float norm = (deg % 360f + 360f) % 360f;
+        return (byte) (int) Math.floor(norm * 256f / 360f);
+    }
+
+    private static float[] computeYawPitch(Location from, Location to) {
+        return computeYawPitch(from, to, 1.62);
+    }
+
     private static float[] computeYawPitch(Location from, Location to, double toEye) {
         double fx = from.getX();
         double fy = from.getY() + 3.24;
@@ -444,6 +596,131 @@ final class PacketNpc {
             if (taskId != -1) {
                 Bukkit.getScheduler().cancelTask(taskId);
                 taskId = -1;
+            }
+        }
+    }
+
+    public interface RotationSource {
+        Location targetOrNull();
+    }
+
+    private NpcPersistence.NpcRuntime toRuntime() {
+        var rt = new NpcPersistence.NpcRuntime(asHandle());
+        rt.internalId = this.id; // falls id ein UUID ist; sonst parse
+        rt.skin = this.skin;
+        if (pathRunner != null) {
+            rt.pathRunning = true;
+            rt.pathName = currentPathName;
+            rt.pathIndex = pathRunner.idx;
+            rt.pathDir = pathRunner.dir;
+            long now = System.currentTimeMillis();
+            rt.waitRemainingMs = Math.max(0, pathRunner.waitUntil - now);
+            rt.pathSpeed = pathRunner.path.speedBlocksPerSec;
+            rt.pathLoop = pathRunner.path.loop;
+        }
+        return rt;
+    }
+
+    private final class PathRunner implements Runnable {
+        private final Path path;
+        private int taskId = -1;
+        private int idx = 0;
+        private int dir = 1;
+        private long waitUntil = 0L;
+        private volatile boolean paused = false;
+
+        PathRunner(Path path) {
+            this.path = path;
+        }
+
+        void start() {
+            taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this, 10L, 2L);
+        }
+
+        void stop() {
+            if (taskId != -1) { Bukkit.getScheduler().cancelTask(taskId); taskId = -1; }
+        }
+
+        void setPaused(boolean p) { paused = p; }
+
+        @Override public void run() {
+            if (paused)
+                return;
+            if (viewers.isEmpty())
+                return;
+
+            Waypoint targetWp = path.points.get(idx);
+            Location from = loc.clone();
+            Location to = targetWp.loc;
+
+            long now = System.currentTimeMillis();
+            if (waitUntil > now) {
+                Location track = rotationSource != null ? rotationSource.targetOrNull() : null;
+                if (track != null) {
+                    float[] head = computeYawPitch(loc, track);
+                    for (UUID v : viewers.keySet()) {
+                        Player p = Bukkit.getPlayer(v);
+                        if (p == null || !p.isOnline()) continue;
+                        var vs = viewers.get(v);
+                        if (vs == null) continue;
+                        sendEntityLookOnly(p, vs.entityId, head[0], head[1]);
+                        sendHeadRotationOnly(p, vs.entityId, head[0]);
+                    }
+                }
+                return;
+            }
+
+            double dist = from.distance(to);
+            if (dist < 1e-3) {
+                waitUntil = targetWp.waitMs > 0 ? now + targetWp.waitMs : 0L;
+                advanceIndex();
+                return;
+            }
+
+            double step = path.speedBlocksPerSec * 0.1;
+            double move = Math.min(step, dist);
+            double dx = (to.getX() - from.getX()) / dist * move;
+            double dy = (to.getY() - from.getY()) / dist * move;
+            double dz = (to.getZ() - from.getZ()) / dist * move;
+
+            Location next = from.add(dx, dy, dz);
+            float[] body = computeYawPitch(next, to);
+
+            Location track = rotationSource != null ? rotationSource.targetOrNull() : null;
+            float[] head = (track != null) ? computeYawPitch(next, track) : body;
+
+            next.setYaw(body[0]);
+            next.setPitch(body[1]);
+            loc = next.clone();
+
+            for (UUID v : viewers.keySet()) {
+                Player p = Bukkit.getPlayer(v);
+                if (p == null || !p.isOnline())
+                    continue;
+                var vs = viewers.get(v);
+                if (vs == null)
+                    continue;
+
+                sendRelMoveLook(p, vs.entityId, dx, dy, dz, body[0], body[1]);
+
+                if (track != null)
+                    sendHeadRotationOnly(p, vs.entityId, head[0]);
+            }
+
+            long remaining = Math.max(0, waitUntil - now);
+            controller.onPathState(asHandle(), idx, dir, remaining);
+        }
+
+        private void advanceIndex() {
+            if (path.loop == Path.Loop.NONE) {
+                if (idx < path.points.size()-1)
+                    idx++;
+            } else if (path.loop == Path.Loop.LOOP)
+                idx = (idx + 1) % path.points.size();
+            else {
+                if (idx == 0) dir = 1;
+                if (idx == path.points.size()-1) dir = -1;
+                idx += dir;
             }
         }
     }

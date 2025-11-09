@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ProtocolNpcs implements NpcService, Listener {
     private final Plugin plugin;
+    private final NpcController controller;
     private final Logger logger;
     private final ProtocolManager pm;
     private final Map<UUID, PacketNpc> npcs = new ConcurrentHashMap<>();
@@ -43,8 +44,9 @@ public final class ProtocolNpcs implements NpcService, Listener {
         }, 5L);
     }
 
-    public ProtocolNpcs(Plugin plugin) {
+    public ProtocolNpcs(Plugin plugin, NpcController controller) {
         this.plugin = plugin;
+        this.controller = controller;
         this.logger = ChronaLog.get(ProtocolNpcs.class);
         this.pm = ProtocolLibrary.getProtocolManager();
 
@@ -97,7 +99,7 @@ public final class ProtocolNpcs implements NpcService, Listener {
 
     @Override
     public NpcHandle create(Location loc, String name, Skin skin) {
-        var npc = new PacketNpc(plugin, pm, loc, name, skin);
+        var npc = new PacketNpc(plugin, pm, controller, loc, name, skin);
         npcs.put(npc.id(), npc);
         globalNpcs.add(npc);
         return npc.asHandle();
@@ -105,7 +107,7 @@ public final class ProtocolNpcs implements NpcService, Listener {
 
     @Override
     public NpcHandle createFor(Player viewer, Location loc, String name, Skin skin) {
-        var npc = new PacketNpc(plugin, pm, loc, name, skin);
+        var npc = new PacketNpc(plugin, pm, controller, loc, name, skin);
         npcs.put(npc.id(), npc);
         npc.asHandle().addViewer(viewer);
         return npc.asHandle();
