@@ -1,18 +1,14 @@
 package dev.chrona.plugin.listeners;
 
 import dev.chrona.common.log.ChronaLog;
-import dev.chrona.common.npc.api.NpcHandle;
-import dev.chrona.common.npc.api.Skin;
 import dev.chrona.economy.PlayerRepo;
 import dev.chrona.plugin.ChronaPlugin;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.slf4j.Logger;
 
 import java.util.UUID;
