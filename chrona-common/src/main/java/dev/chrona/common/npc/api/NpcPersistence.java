@@ -1,12 +1,14 @@
 package dev.chrona.common.npc.api;
 
 import com.google.gson.*;
+import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.npc.PathUtil;
 import dev.chrona.common.npc.protocol.NpcController;
 import org.bukkit.*;
 
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.slf4j.Logger;
 
 import java.io.*;
 import java.nio.file.*;
@@ -14,6 +16,7 @@ import java.util.*;
 
 public final class NpcPersistence {
     private final Plugin plugin;
+    private final Logger logger;
     private final NpcController ctrl;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final java.nio.file.Path file;
@@ -26,6 +29,7 @@ public final class NpcPersistence {
 
     public NpcPersistence(Plugin plugin, NpcController ctrl, NpcFactory factory) {
         this.plugin = plugin;
+        this.logger = ChronaLog.get(NpcPersistence.class);
         this.ctrl = ctrl;
         this.factory = factory;
         this.file = plugin.getDataFolder().toPath().resolve("npcs.json");
@@ -40,9 +44,11 @@ public final class NpcPersistence {
             arr.add(toJson(rt));
         try (Writer w = Files.newBufferedWriter(file)) {
             gson.toJson(arr, w);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save NPCs: " + e.getMessage());
         }
+        catch (IOException e) {
+            logger.warn("Failed to save NPCs", e);
+        }
+        logger.info("Saved {} NPCs.", runtimes.size());
     }
 
     private JsonObject toJson(NpcRuntime rt) {
@@ -75,7 +81,8 @@ public final class NpcPersistence {
     // -------- LOAD --------
 
     public synchronized List<NpcRuntime> loadAllAndRecreate() {
-        if (!Files.exists(file)) return List.of();
+        if (!Files.exists(file))
+            return List.of();
 
         List<NpcRuntime> result = new ArrayList<>();
         try (Reader r = Files.newBufferedReader(file)) {
@@ -85,7 +92,7 @@ public final class NpcPersistence {
                 String worldName = o.get("world").getAsString();
                 World w = Bukkit.getWorld(worldName);
                 if (w == null) {
-                    plugin.getLogger().warning("NPC skipped: world not found " + worldName);
+                    logger.warn("NPC skipped: world not found {}", worldName);
                     continue;
                 }
                 Location loc = new Location(w,
@@ -102,6 +109,7 @@ public final class NpcPersistence {
 
                 NpcHandle npc = factory.create(loc, name, skin);
                 ctrl.register(name, npc);
+                npc.setSkin(skin);
 
                 var rt = new NpcRuntime(npc);
                 rt.internalId = UUID.fromString(o.get("id").getAsString());
@@ -120,17 +128,18 @@ public final class NpcPersistence {
                 if (rt.pathRunning && rt.pathName != null) {
                     try {
                         Path p = PathUtil.loadPath(plugin, rt.pathName);
-                        if (rt.pathSpeed > 0) p = override(p, rt.pathSpeed, rt.pathLoop != null ? rt.pathLoop : p.loop);
+                        if (rt.pathSpeed > 0)
+                            p = override(p, rt.pathSpeed, rt.pathLoop != null ? rt.pathLoop : p.loop);
                         npc.runPath(resumeFromIndex(p, rt));
                     } catch (Exception ex) {
-                        plugin.getLogger().warning("Failed to resume path for NPC " + name + ": " + ex.getMessage());
+                        logger.warn("Failed to resume path for NPC {}", name, ex);
                     }
                 }
 
                 result.add(rt);
             }
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to load NPCs: " + e.getMessage());
+            logger.warn("Failed to load NPCs", e);
         }
         return result;
     }
@@ -147,9 +156,7 @@ public final class NpcPersistence {
                 .build();
     }
 
-    // Resume: Setzt Startindex/Dir/Wait in PathRunner – wir kapseln das in eine Hilfs-API im NPC
     private Path resumeFromIndex(Path p, NpcRuntime rt) {
-        // Wir geben das Path normal zurück; die Details (index/dir/wait) injizieren wir gleich via NPC-API:
         return p;
     }
 

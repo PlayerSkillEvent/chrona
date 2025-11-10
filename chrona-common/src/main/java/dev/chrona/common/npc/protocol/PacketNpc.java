@@ -72,6 +72,11 @@ public final class PacketNpc {
             }
 
             @Override
+            public Skin skin() {
+                return self.skin;
+            }
+
+            @Override
             public String name() {
                 return self.name;
             }
@@ -259,20 +264,19 @@ public final class PacketNpc {
     public NpcPersistence.NpcRuntime snapshot() {
         var rt = new NpcPersistence.NpcRuntime(asHandle());
 
-        rt.internalId = this.id;          // interne UUID
-        rt.skin = this.skin;              // aktueller Skin
-        rt.lookMode = this.lookMode;      // falls du LookMode+Radius im NPC speicherst
-        double lookRadius = 12.0;
-        rt.lookRadius = lookRadius;  // (wenn nicht, setz Standard 12)
+        rt.internalId = this.id;
+        rt.skin = this.skin;
+        rt.lookMode = this.lookMode;
+        rt.lookRadius = 12.0;
 
         // Position
         var l = this.loc.clone();
-        rt.npc.teleport(l);               // stellt sicher, dass .location() konsistent ist
+        rt.npc.teleport(l);
 
         // Laufender Path
         if (this.pathRunner != null) {
             rt.pathRunning = true;
-            rt.pathName = this.currentPathName;  // der zuletzt gestartete Pfadname
+            rt.pathName = this.currentPathName;
             rt.pathSpeed = this.pathRunner.path.speedBlocksPerSec;
             rt.pathLoop = this.pathRunner.path.loop;
             rt.pathIndex = this.pathRunner.idx;

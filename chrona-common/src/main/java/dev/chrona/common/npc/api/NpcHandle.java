@@ -12,6 +12,7 @@ import java.util.UUID;
 public interface NpcHandle {
     UUID id();
     UUID uuid();
+    Skin skin();
     String name();
     Location location();
 

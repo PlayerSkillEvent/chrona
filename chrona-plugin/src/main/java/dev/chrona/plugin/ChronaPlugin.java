@@ -57,6 +57,7 @@ public final class ChronaPlugin extends JavaPlugin {
         this.persistence = new NpcPersistence(this, npcCtrl, factory);
 
         List<NpcPersistence.NpcRuntime> runtimes = persistence.loadAllAndRecreate();
+        logger.info("Loaded {} NPCs from storage.", runtimes.size());
 
         Bukkit.getScheduler().runTask(this, () -> {
             for (var name : npcCtrl.listNames()) {

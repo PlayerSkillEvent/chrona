@@ -3,6 +3,7 @@ package dev.chrona.plugin.commands;
 import com.google.gson.*;
 import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.npc.PathUtil;
+import dev.chrona.common.npc.api.Path.Loop;
 import dev.chrona.common.npc.api.Waypoint;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -16,16 +17,15 @@ import java.util.*;
 
 public class NpcPathCommand implements CommandExecutor {
     private final Plugin plugin;
-    private final Logger logger;
     private final Map<UUID, RecordingSession> recorders = new HashMap<>();
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final Path dataDir;
 
     public NpcPathCommand(Plugin plugin) {
         this.plugin = plugin;
-        this.logger = ChronaLog.get(NpcPathCommand.class);
-        this.dataDir = plugin.getDataFolder().toPath().resolve("paths");
-        try { Files.createDirectories(dataDir); } catch (IOException ignored) {}
+        Path dataDir = plugin.getDataFolder().toPath().resolve("paths");
+        try {
+            Files.createDirectories(dataDir);
+        } catch (IOException ignored) {}
     }
 
     @Override
@@ -39,7 +39,7 @@ public class NpcPathCommand implements CommandExecutor {
             return true;
         }
 
-        switch (args[0].toLowerCase(Locale.ROOT)) {
+        switch (args[0].toLowerCase()) {
             case "start" -> handleStart(p, args);
             case "add" -> handleAdd(p, args);
             case "end" -> handleEnd(p, args);
@@ -99,36 +99,16 @@ public class NpcPathCommand implements CommandExecutor {
         }
 
         double speed = 3.0;
-        String loop = "NONE";
-        if (args.length >= 2) try { speed = Double.parseDouble(args[1]); } catch (NumberFormatException ignored) {}
-        if (args.length >= 3) loop = args[2].toUpperCase(Locale.ROOT);
+        Loop loop = Loop.NONE;
+        if (args.length >= 2)
+            try {
+                speed = Double.parseDouble(args[1]);
+            } catch (NumberFormatException ignored) {}
+        if (args.length >= 3)
+            loop = Loop.valueOf(args[2]);
 
-        savePath(rec.name, rec.points, speed, loop);
+        PathUtil.savePath(plugin, new dev.chrona.common.npc.api.Path(rec.name, rec.points, speed, loop));
         p.sendMessage("§aPfad §e" + rec.name + " §agespeichert (" + rec.points.size() + " Punkte, speed=" + speed + ", loop=" + loop + ")");
-    }
-
-    private void savePath(String name, List<Waypoint> points, double speed, String loop) {
-        JsonObject root = new JsonObject();
-        root.addProperty("speed", speed);
-        root.addProperty("loop", loop);
-        JsonArray arr = new JsonArray();
-        for (var wp : points) {
-            JsonObject o = new JsonObject();
-            o.addProperty("world", wp.loc.getWorld().getName());
-            o.addProperty("x", wp.loc.getX());
-            o.addProperty("y", wp.loc.getY());
-            o.addProperty("z", wp.loc.getZ());
-            o.addProperty("wait", wp.waitMs);
-            arr.add(o);
-        }
-        root.add("points", arr);
-
-        Path file = dataDir.resolve(name + ".json");
-        try (Writer w = Files.newBufferedWriter(file)) {
-            gson.toJson(root, w);
-        } catch (IOException e) {
-            logger.warn("Failed to save path {}", name, e);
-        }
     }
 
     private record RecordingSession(String name, List<Waypoint> points) {

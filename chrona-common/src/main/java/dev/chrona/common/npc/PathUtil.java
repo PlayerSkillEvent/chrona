@@ -7,6 +7,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -14,8 +16,11 @@ import java.util.*;
 
 public final class PathUtil {
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static Logger logger = null;
 
-    private PathUtil() {}
+    private PathUtil() {
+        logger = LoggerFactory.getLogger(PathUtil.class);
+    }
 
     /** Lädt einen gespeicherten Pfad (throwt bei Fehler) */
     public static Path loadPath(Plugin plugin, String name) {
@@ -50,15 +55,16 @@ public final class PathUtil {
 
             return new Path(name, points, speed, loop);
         } catch (Exception e) {
-            throw new RuntimeException("Fehler beim Laden des Pfades " + name + ": " + e.getMessage(), e);
+            logger.error("Fehler beim Laden des Pfades {}", name, e);
+            return null;
         }
     }
 
     /** Speichert (überschreibt) einen Pfad */
-    public static void savePath(Plugin plugin, String name, Path path) {
+    public static void savePath(Plugin plugin,Path path) {
         try {
             Files.createDirectories(pathDir(plugin));
-            java.nio.file.Path file = pathFile(plugin, name);
+            java.nio.file.Path file = pathFile(plugin, path.name);
 
             JsonObject root = new JsonObject();
             root.addProperty("speed", path.speedBlocksPerSec);
@@ -79,7 +85,7 @@ public final class PathUtil {
                 gson.toJson(root, w);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Fehler beim Speichern des Pfades " + name + ": " + e.getMessage(), e);
+            logger.error("Fehler beim Speichern des Pfades {}", path.name, e);
         }
     }
 

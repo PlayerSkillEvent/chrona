@@ -25,7 +25,7 @@ public final class NpcController {
         byName.put(name.toLowerCase(), npc);
         var rt = new NpcPersistence.NpcRuntime(npc);
         rt.internalId = npc.id();
-        rt.skin = null;
+        rt.skin = npc.skin();
         rt.lookMode = LookMode.FIXED;
         rt.lookRadius = 12.0;
         runtimeByName.put(name.toLowerCase(), rt);
@@ -75,14 +75,17 @@ public final class NpcController {
         rt.pathSpeed = p.speedBlocksPerSec; rt.pathLoop = p.loop;
         rt.pathIndex = 0; rt.pathDir = 1; rt.waitRemainingMs = 0;
     }
+
     public void onPathState(NpcHandle npc, int index, int dir, long waitRemaining) {
         var rt = runtimeByName.get(npc.name().toLowerCase());
         rt.pathIndex = index; rt.pathDir = dir; rt.waitRemainingMs = waitRemaining;
     }
+
     public void onPathStopped(NpcHandle npc) {
         var rt = runtimeByName.get(npc.name().toLowerCase());
         rt.pathRunning = false; rt.waitRemainingMs = 0;
     }
+
     public void onSkinSet(NpcHandle npc, Skin s) {
         runtimeByName.get(npc.name().toLowerCase()).skin = s;
     }

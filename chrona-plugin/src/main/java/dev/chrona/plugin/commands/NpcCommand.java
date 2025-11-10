@@ -130,7 +130,8 @@ public final class NpcCommand implements CommandExecutor, TabCompleter {
                         case "TRACK", "FOLLOW" -> NpcController.LookMode.TRACK_PLAYER;
                         default -> NpcController.LookMode.FIXED;
                     };
-                    if (mode == NpcController.LookMode.FIXED) npc.setRotationSource(null);
+                    if (mode == NpcController.LookMode.FIXED)
+                        npc.setRotationSource(null);
                     else npc.setRotationSource(() -> {
                         var o = npc.location();
                         double r2 = radius*radius;
@@ -145,7 +146,7 @@ public final class NpcCommand implements CommandExecutor, TabCompleter {
                         }
                         return best != null ? best.getEyeLocation() : null;
                     });
-
+                    ctrl.setLookMode(npc, mode, radius);
                     player.sendMessage("§aLook-Mode: §e" + mode + " §7(r=" + radius + ")");
                 }
                 case "tp" -> {
