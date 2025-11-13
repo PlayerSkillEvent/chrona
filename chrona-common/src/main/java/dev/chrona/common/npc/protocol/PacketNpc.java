@@ -27,6 +27,8 @@ public final class PacketNpc {
     private static final double GRAVITY = 18.0;
     private static final double GROUND_SNAP = 0.02;
     private static final double MAX_REL_STEP = 8.0;
+    private static final double MAX_STEP_UP_PER_TICK = 0.25;
+    private static final double SOFT_STEP_THRESHOLD = 0.35;
 
     // --------- Head-State: Anti-Jitter ----------
     private enum HeadMode { PATH, PLAYER }
@@ -740,11 +742,13 @@ public final class PacketNpc {
             double dzWp = to.getZ() - from.getZ();
             double dyWp = to.getY() - from.getY();
 
-            final double REACH_R = 0.35;
-            final double REACH_Y = 1.25;
+            // Wie nah müssen wir am Wegpunkt dran sein, damit er als "erreicht" gilt?
+            final double REACH_R = 0.35;   // Radius in XZ
+            final double REACH_Y = 1.25;   // vertikale Toleranz
 
             boolean reached = (Math.hypot(dxWp, dzWp) <= REACH_R) && (Math.abs(dyWp) <= REACH_Y);
             if (reached) {
+                // X/Z exakt auf den Wegpunkt ziehen, Y bleibt von der Boden-Suche / Physik gesteuert
                 loc.setX(to.getX());
                 loc.setZ(to.getZ());
                 waitUntil = targetWp.waitMs > 0 ? now + targetWp.waitMs : 0L;
@@ -752,14 +756,18 @@ public final class PacketNpc {
                 return;
             }
 
+            // Richtung zum Wegpunkt in XZ
             double toDx = to.getX() - from.getX();
             double toDz = to.getZ() - from.getZ();
             double distXZ = Math.hypot(toDx, toDz);
+
+            // Schrittweite pro Tick aus speedBlocksPerSec
             double step = path.speedBlocksPerSec * TICK_DT;
             double moveXZ = Math.min(step, Math.max(1e-6, distXZ));
             double mx = (toDx / Math.max(1e-6, distXZ)) * moveXZ;
             double mz = (toDz / Math.max(1e-6, distXZ)) * moveXZ;
 
+            // Zielhöhe anhand der Welt suchen (Block unter den Füßen)
             double baseTargetY = findSurfaceY(from.getWorld(), from.getX() + mx, from.getY(), from.getZ() + mz, 6, 6);
             double desiredY = baseTargetY + GROUND_SNAP;
             double dyTarget = desiredY - from.getY();
@@ -767,48 +775,68 @@ public final class PacketNpc {
             double nx, ny, nz;
             boolean onGround;
 
-            if (!airborne && dyTarget > 0 && dyTarget <= STEP_HEIGHT) {
-                double dy = Math.min(dyTarget, step * 0.8);
-                vy = 0;
-                nx = from.getX() + mx;
-                ny = from.getY() + dy;
-                nz = from.getZ() + mz;
-                airborne = false;
-                onGround = true;
-            }
-            else if (!airborne && dyTarget > STEP_HEIGHT && dyTarget <= JUMP_HEIGHT) {
-                airborne = true;
-                vy = Math.sqrt(2 * GRAVITY * dyTarget);
-                nx = from.getX() + mx;
-                nz = from.getZ() + mz;
-                ny = from.getY() + vy * TICK_DT * 0.5;
-                onGround = false;
-            }
-            else {
-                nx = from.getX() + mx;
-                nz = from.getZ() + mz;
+            // --- Vertikale Bewegung (Step / Jump / Fall) ---
 
-                if (airborne) {
-                    vy -= GRAVITY * TICK_DT;
-                    ny = from.getY() + vy * TICK_DT;
-                    if (ny <= desiredY) {
-                        ny = desiredY;
-                        airborne = false;
-                        vy = 0;
-                    }
-                    onGround = !airborne;
-                } else {
-                    double blend = Math.min(1.0, step * 2.0);
+            if (!airborne) {
+                // 1) Mini-Stufen -> weicher Step (Slabs, kleine Kanten)
+                if (dyTarget > 0 && dyTarget <= SOFT_STEP_THRESHOLD) {
+                    double dy = Math.min(dyTarget, MAX_STEP_UP_PER_TICK);
+                    nx = from.getX() + mx;
+                    ny = from.getY() + dy;
+                    nz = from.getZ() + mz;
+                    onGround = true;
+                }
+                // 2) Richtiger Jump für alles über ~0.35 bis max. Jump-Höhe
+                else if (dyTarget > SOFT_STEP_THRESHOLD && dyTarget <= JUMP_HEIGHT) {
+                    airborne = true;
+
+                    // feste Jump-Velocity, eher wie Player-Jump (fühlt sich "snappy" an)
+                    // 0.42 ist ungefähr der normale MC-Spieler-Jump
+                    vy = 0.42 * (GRAVITY / 18.0); // skaliert mit deiner Gravity-Konstante
+
+                    nx = from.getX() + mx;
+                    ny = from.getY() + vy * TICK_DT;  // direkt sichtbar ein Stück nach oben
+                    nz = from.getZ() + mz;
+                    onGround = false;
+                }
+                // 3) Ebene oder bergab -> auf Boden "kleben" / leicht blenden
+                else {
+                    nx = from.getX() + mx;
+                    nz = from.getZ() + mz;
+
+                    double blend = Math.min(1.0, step * 2.0); // horizontale Speed -> wie schnell snappt Y nach
                     ny = from.getY() + (desiredY - from.getY()) * blend;
 
+                    // Deutlich über Boden? Dann ab jetzt Fallen
                     if (desiredY + 0.3 < from.getY()) {
                         airborne = true;
                         vy = 0;
                         onGround = false;
-                    } else onGround = true;
+                    } else {
+                        onGround = true;
+                    }
+                }
+            }
+            else {
+                // In der Luft: klassische Ballistik
+                nx = from.getX() + mx;
+                nz = from.getZ() + mz;
+
+                vy -= GRAVITY * TICK_DT;
+                ny = from.getY() + vy * TICK_DT;
+
+                // Boden getroffen?
+                if (ny <= desiredY) {
+                    ny = desiredY;
+                    vy = 0;
+                    airborne = false;
+                    onGround = true;
+                } else {
+                    onGround = false;
                 }
             }
 
+            // Location für diesen Tick
             Location next = new Location(from.getWorld(), nx, ny, nz);
 
             // Körperausrichtung: nur Yaw aus Bewegungsvektor; Pitch = 0
@@ -823,16 +851,20 @@ public final class PacketNpc {
             next.setPitch(body[1]);
             loc = next.clone();
 
+            // relative Bewegung berechnen
             double dx = loc.getX() - from.getX();
             double dy = loc.getY() - from.getY();
             double dz = loc.getZ() - from.getZ();
             double stepLen = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
+            // Packets an alle Viewer
             for (UUID v : viewers.keySet()) {
                 Player p = Bukkit.getPlayer(v);
-                if (p == null || !p.isOnline()) continue;
+                if (p == null || !p.isOnline())
+                    continue;
                 ViewerState vs = viewers.get(v);
-                if (vs == null) continue;
+                if (vs == null)
+                    continue;
 
                 if (stepLen <= MAX_REL_STEP)
                     sendRelMoveLook(p, vs.entityId, dx, dy, dz, body[0], body[1], onGround);
