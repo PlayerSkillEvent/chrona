@@ -24,3 +24,7 @@ commands:
   npc:
     description: NPC management
     usage: /npc
+  dialogue:
+    description: Chrona dialogue system
+    usage: /dialogue
+    aliases: [ dlg ]

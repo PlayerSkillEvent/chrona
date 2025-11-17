@@ -1,5 +1,6 @@
 package dev.chrona.plugin;
 
+import dev.chrona.common.dialogue.DialogueService;
 import dev.chrona.common.hologram.protocol.ProtocolHolograms;
 import dev.chrona.common.log.ChronaLog;
 import dev.chrona.common.log.LoggingBootstrap;
@@ -12,6 +13,7 @@ import dev.chrona.economy.PlayerRepo;
 import dev.chrona.job.core.*;
 import dev.chrona.minigames.core.MinigameManager;
 import dev.chrona.plugin.commands.*;
+import dev.chrona.plugin.listeners.DialogueListener;
 import dev.chrona.plugin.listeners.JoinListener;
 import dev.chrona.minigames.Minigames;
 import org.bukkit.Bukkit;
@@ -34,6 +36,7 @@ public final class ChronaPlugin extends JavaPlugin {
     private PlayerRepo playerRepo;
     private NpcController npcCtrl;
     private NpcPersistence persistence;
+    private DialogueService dialogueService;
 
     @Override
     public void onEnable() {
@@ -71,15 +74,19 @@ public final class ChronaPlugin extends JavaPlugin {
             persistence.saveAll(npcCtrl.runtimes());
         }, 1200L, 1200L);
 
+        this.dialogueService = new DialogueService(this);
+
         registerCommand("wallet", new WalletCmd(econ));
         registerCommand("pay", new PayCmd(econ));
         registerCommand("econ", new EconCmd(econ));
         registerCommand("minergive", new MinerGiveCmd());
         registerCommand("npcpath", new NpcPathCommand(this));
         registerCommand("npc", npcCmd);
+        registerCommand("dialogue", new DialogueCmd(dialogueService));
 
         registerEvent(new JoinListener(this, playerRepo));
         registerEvent(npcs);
+        registerEvent(new DialogueListener(dialogueService));
 
         Objects.requireNonNull(getCommand("npc")).setTabCompleter(npcCmd);
 
@@ -143,4 +150,6 @@ public final class ChronaPlugin extends JavaPlugin {
     public ProtocolNpcs getNpcs() {
         return npcs;
     }
+
+    public DialogueService getDialogueService() { return dialogueService; }
 }
