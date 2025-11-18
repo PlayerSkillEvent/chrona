@@ -13,15 +13,21 @@ public final class SetFlagAction implements DialogueAction {
         this.store = store;
     }
 
-    @Override public String type() { return "set_flag"; }
+    @Override
+    public String type() {
+        return "set_flag";
+    }
 
     @Override
     public void execute(Player player, NpcHandle npc, DialogueSession session, ActionDef def) {
-        JsonObject p = def.params();
-        if (!p.has("key")) return;
-        String key = p.get("key").getAsString();
-        boolean value = !p.has("value") || p.get("value").getAsBoolean();
+        JsonObject params = def.params();
+        if (!params.has("key"))
+            return;
+
+        String key = params.get("key").getAsString();
+
+        boolean value = !params.has("value") || params.get("value").getAsBoolean();
+
         store.setFlag(player.getUniqueId(), key, value);
-        store.save();
     }
 }

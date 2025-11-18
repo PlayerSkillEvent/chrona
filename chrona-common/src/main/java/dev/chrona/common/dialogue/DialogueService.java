@@ -52,7 +52,6 @@ public final class DialogueService {
     public void reload() {
         dialogues.reload();
         npcBindings.reload();
-        flagStore.save(); // just to flush structure, optional
     }
 
     public void handleNpcInteract(Player player, NpcHandle npc) {
