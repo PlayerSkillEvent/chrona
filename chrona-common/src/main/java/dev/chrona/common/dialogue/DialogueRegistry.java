@@ -18,11 +18,12 @@ public final class DialogueRegistry {
     private final Path dir;
     private final Map<String, Dialogue> byId = new HashMap<>();
 
-    public DialogueRegistry(Plugin plugin, Path baseDir) {
+    public DialogueRegistry(Path baseDir) {
         this.dir = baseDir.resolve("dialogues");
         reload();
     }
 
+    /** Reloads all dialogues from disk. */
     public synchronized void reload() {
         byId.clear();
         try {
@@ -36,13 +37,15 @@ public final class DialogueRegistry {
                             continue;
                         }
                         byId.put(d.getId(), d);
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         log.error("Failed to load dialogue {}: {}", p.getFileName(), e.getMessage(), e);
                     }
                 }
             }
             log.info("Loaded {} dialogues from {}", byId.size(), dir);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             log.error("Failed to load dialogues from {}: {}", dir, e.getMessage(), e);
         }
     }

@@ -14,12 +14,16 @@ public final class ActionRegistry {
     private final Logger log = ChronaLog.get(ActionRegistry.class);
     private final Map<String, DialogueAction> byType = new HashMap<>();
 
+    /** Registers a new dialogue action. */
     public void register(DialogueAction action) {
         byType.put(action.type(), action);
     }
 
+    /** Executes all given action definitions. */
     public void executeAll(Player player, NpcHandle npc, DialogueSession session, List<ActionDef> defs) {
-        if (defs == null || defs.isEmpty()) return;
+        if (defs == null || defs.isEmpty())
+            return;
+
         for (ActionDef def : defs) {
             DialogueAction a = byType.get(def.type());
             if (a == null) {

@@ -14,19 +14,24 @@ public final class ConditionRegistry {
     private final Logger log = ChronaLog.get(ConditionRegistry.class);
     private final Map<String, DialogueCondition> byType = new HashMap<>();
 
+    /** Registers a new dialogue condition. */
     public void register(DialogueCondition condition) {
         byType.put(condition.type(), condition);
     }
 
+    /** Evaluates all given condition definitions. */
     public boolean evaluateAll(Player player, NpcHandle npc, DialogueSession session, List<ConditionDef> defs) {
-        if (defs == null || defs.isEmpty()) return true;
+        if (defs == null || defs.isEmpty())
+            return true;
+
         for (ConditionDef def : defs) {
             DialogueCondition c = byType.get(def.type());
             if (c == null) {
                 log.warn("Unknown dialogue condition type '{}'", def.type());
                 continue;
             }
-            if (!c.evaluate(player, npc, session, def)) return false;
+            if (!c.evaluate(player, npc, session, def))
+                return false;
         }
         return true;
     }

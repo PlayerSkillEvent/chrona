@@ -5,11 +5,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Zusätzliche Metadaten für ein Flag-Set/Unset.
- *
- * - source: Woher kommt die Änderung? (z.B. "dialogue:ARENKHET_INTRO", "quest:ARC-PH1-01", "cmd:/setflag")
- * - world, x, y, z: Ort im Spiel (optional)
- * - extra: freie Zusatzinfos (npcId, questId, choiceId, etc.)
+ * Metadata associated with a flag-update in the dialogue system.
+ * Includes the source of the update and any additional extra metadata.
+ * This class is immutable and can be constructed using the Builder pattern.
  */
 public final class FlagMetadata {
 
@@ -23,50 +21,58 @@ public final class FlagMetadata {
                 : Collections.emptyMap();
     }
 
+    /** Returns the source of the flag-update. */
     public String getSource() {
         return source;
     }
 
+    /** Returns additional extra metadata. */
     public Map<String, Object> getExtra() {
         return extra;
     }
 
-    // Convenience: leere Metadata
+    /** Returns an empty FlagMetadata instance for convenience. */
     public static FlagMetadata empty() {
         return new Builder().build();
     }
 
-    // Convenience: nur Source
+    /** Returns a FlagMetadata instance with only the source set for convenience. */
     public static FlagMetadata ofSource(String source) {
         return new Builder().source(source).build();
     }
 
+    /** Creates a new Builder for FlagMetadata. */
     public static Builder builder() {
         return new Builder();
     }
 
+    /** Builder class for FlagMetadata. */
     public static final class Builder {
         private String source;
         private Map<String, Object> extra;
 
+        /** Sets the source of the flag-update. */
         public Builder source(String source) {
             this.source = source;
             return this;
         }
 
+        /** Sets the extra metadata map. */
         public Builder extra(Map<String, Object> extra) {
             this.extra = extra;
             return this;
         }
 
+        /** Puts a single key-value pair into the extra metadata map. */
         public Builder putExtra(String key, Object value) {
-            if (this.extra == null) {
+            if (this.extra == null)
                 this.extra = new HashMap<>();
-            }
+
             this.extra.put(key, value);
             return this;
         }
 
+        /** Builds the FlagMetadata instance. */
         public FlagMetadata build() {
             return new FlagMetadata(this);
         }

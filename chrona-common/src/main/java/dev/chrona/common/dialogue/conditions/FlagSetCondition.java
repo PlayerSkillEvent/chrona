@@ -6,6 +6,9 @@ import dev.chrona.common.dialogue.PlayerFlagStore;
 import dev.chrona.common.npc.api.NpcHandle;
 import org.bukkit.entity.Player;
 
+/**
+ * A dialogue condition that checks if a player flag is set or not.
+ */
 public final class FlagSetCondition implements DialogueCondition {
     private final PlayerFlagStore store;
     private final boolean expected;
@@ -15,7 +18,8 @@ public final class FlagSetCondition implements DialogueCondition {
         this.expected = expected;
     }
 
-    @Override public String type() {
+    @Override
+    public String type() {
         return expected ? "flag_set" : "flag_not_set";
     }
 
@@ -23,7 +27,9 @@ public final class FlagSetCondition implements DialogueCondition {
     public boolean evaluate(Player player, NpcHandle npc, DialogueSession session, ConditionDef def) {
         JsonObject params = def.params();
         String key = params.has("key") ? params.get("key").getAsString() : null;
-        if (key == null) return true;
+        if (key == null)
+            return true;
+
         boolean has = store.hasFlag(player.getUniqueId(), key);
         return expected == has;
     }

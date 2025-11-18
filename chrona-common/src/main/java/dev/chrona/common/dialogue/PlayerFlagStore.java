@@ -16,18 +16,16 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * DB-basierter Store für Spieler-Flags mit History-Logging.
+ * DB-based Store for player-flags with history-logging.
  *
- * - Aktive Flags in Tabelle "player_flag"
- * - Jede Änderung wird zusätzlich in "player_flag_log" geschrieben.
- * - One-Time-Migration aus der alten JSON-Datei "player_flags.json", falls vorhanden.
+ * - Active flags in table "player_flag"
+ * - Every update of the flags gets written into the "player_flag_log" table.
  *
  * API:
  *   - hasFlag(UUID, String)
  *   - setFlag(UUID, String, boolean)
  *   - setFlag(UUID, String, boolean, FlagMetadata)
  *   - getFlags(UUID)
- *   - save() -> NO-OP (für Legacy-Kompatibilität)
  */
 public final class PlayerFlagStore {
 
@@ -48,25 +46,24 @@ public final class PlayerFlagStore {
     }
 
     /**
-     * Prüft, ob noch die alte JSON-Datei existiert und die DB-Tabelle leer ist.
-     * Falls ja, Migration der Flags in die DB, dann Umbenennen in .bak.
+     * Migriert die legacy player_flags.json in die player_flag Tabelle,
+     * falls die Datei existiert und die Tabelle noch leer ist.
      */
     private void migrateLegacyIfNeeded() {
-        if (!Files.exists(legacyFile)) {
+        if (!Files.exists(legacyFile))
             return;
-        }
 
-        log.info("Legacy player_flags.json gefunden unter {} – prüfe, ob Migration nötig ist …", legacyFile);
+        log.info("Legacy player_flags.json found under {} – check, if migration needed …", legacyFile);
 
         try (Connection conn = ds.getConnection()) {
             if (tableHasAnyRows(conn)) {
-                log.info("Tabelle {} enthält bereits Daten – Legacy-Migration wird übersprungen.", TABLE_FLAGS);
+                log.info("Table {} already contains data – Legacy-Migration skipped.", TABLE_FLAGS);
                 return;
             }
 
             Map<UUID, Set<String>> legacyFlags = readLegacyJson(legacyFile);
             if (legacyFlags.isEmpty()) {
-                log.info("Legacy player_flags.json ist leer – keine Migration erforderlich.");
+                log.info("Legacy player_flags.json is empty – no migration needed.");
                 backupLegacyFile();
                 return;
             }
@@ -88,23 +85,24 @@ public final class PlayerFlagStore {
                     }
                 }
 
-                if (count > 0) {
+                if (count > 0)
                     ps.executeBatch();
-                }
 
                 conn.commit();
-                log.info("Legacy-Migration abgeschlossen: {} Flags aus {} in Tabelle {} übernommen.",
+                log.info("Legacy-Migration done: Copied {} flags from {} into table {}.",
                         count, legacyFile, TABLE_FLAGS);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 conn.rollback();
-                log.error("Fehler bei Legacy-Migration von {}: {}", legacyFile, e.getMessage(), e);
+                log.error("Error at Legacy-Migration from {}: {}", legacyFile, e.getMessage(), e);
                 return;
             }
 
             backupLegacyFile();
 
-        } catch (Exception e) {
-            log.error("Fehler beim Prüfen/Migrieren der Legacy-Flags: {}", e.getMessage(), e);
+        }
+        catch (Exception e) {
+            log.error("Error at checking/migrating of Legacy-Flags: {}", e.getMessage(), e);
         }
     }
 
@@ -113,8 +111,9 @@ public final class PlayerFlagStore {
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             return rs.next();
-        } catch (SQLException e) {
-            log.error("Fehler beim Prüfen, ob Tabelle {} Daten enthält: {}", TABLE_FLAGS, e.getMessage(), e);
+        }
+        catch (SQLException e) {
+            log.error("Error checking, if table {} has any data: {}", TABLE_FLAGS, e.getMessage(), e);
             return false;
         }
     }
@@ -130,14 +129,16 @@ public final class PlayerFlagStore {
                     try {
                         UUID id = UUID.fromString(k);
                         result.put(id, new HashSet<>(v));
-                    } catch (IllegalArgumentException ex) {
-                        log.warn("Ungültige UUID '{}' in legacy player_flags.json – wird ignoriert.", k);
+                    }
+                    catch (IllegalArgumentException ex) {
+                        log.warn("Unknown UUID '{}' in legacy player_flags.json – ignored.", k);
                     }
                 });
             }
-            log.info("Legacy-Flags gelesen: {} Spieler, Datei {}", result.size(), file);
-        } catch (Exception e) {
-            log.error("Konnte legacy player_flags.json nicht lesen: {}", e.getMessage(), e);
+            log.info("Read Legacy.Flags: {} Players, File {}", result.size(), file);
+        }
+        catch (Exception e) {
+            log.error("Couldnt read legacy player_flags.json: {}", e.getMessage(), e);
         }
 
         return result;
@@ -147,14 +148,15 @@ public final class PlayerFlagStore {
         try {
             Path backup = legacyFile.resolveSibling("player_flags.json.bak-" + Instant.now().toEpochMilli());
             Files.move(legacyFile, backup, StandardCopyOption.REPLACE_EXISTING);
-            log.info("Legacy player_flags.json nach {} verschoben.", backup);
-        } catch (IOException e) {
-            log.warn("Konnte legacy player_flags.json nicht als Backup verschieben: {}", e.getMessage());
+            log.info("Moved player_flags.json to {}.", backup);
+        }
+        catch (IOException e) {
+            log.warn("Couldnt move legacy player_flags.json as backup: {}", e.getMessage());
         }
     }
 
     /**
-     * Liefert true, wenn der Spieler das Flag gesetzt hat.
+     * Returns true, if player has flag set.
      */
     public synchronized boolean hasFlag(UUID playerId, String key) {
         String sql = "SELECT 1 FROM " + TABLE_FLAGS + " WHERE player_id = ? AND flag_key = ?";
@@ -169,27 +171,28 @@ public final class PlayerFlagStore {
                 return rs.next();
             }
 
-        } catch (SQLException e) {
-            log.error("Fehler beim Prüfen von Flag '{}' für Spieler {}: {}", key, playerId, e.getMessage(), e);
+        }
+        catch (SQLException e) {
+            log.error("Erro checking flag '{}' for player {}: {}", key, playerId, e.getMessage(), e);
             return false;
         }
     }
 
     /**
-     * Setzt oder entfernt ein Flag für einen Spieler ohne zusätzliche Metadaten.
+     * Sets or removes a flag for a player without metadata.
      *
-     * value == true  -> Flag wird gesetzt
-     * value == false -> Flag wird gelöscht
+     * value == true  -> Flag gets set
+     * value == false -> Flag gets removed
      */
     public synchronized void setFlag(UUID playerId, String key, boolean value) {
         setFlag(playerId, key, value, null);
     }
 
     /**
-     * Setzt oder entfernt ein Flag für einen Spieler mit Metadaten.
+     * Sets or delete a flag for a player with metadata.
      *
-     * - Schreibt in player_flag (Upsert / Delete)
-     * - Schreibt in player_flag_log (History)
+     * - Writes into player_flag (Upsert / Delete)
+     * - Writes into player_flag_log (History)
      */
     public synchronized void setFlag(UUID playerId, String key, boolean value, FlagMetadata metadata) {
         try (Connection conn = ds.getConnection()) {
@@ -198,20 +201,22 @@ public final class PlayerFlagStore {
             if (value) {
                 upsertFlag(conn, playerId, key, metadata);
                 insertLog(conn, playerId, key, true, "SET", metadata);
-            } else {
+            }
+            else {
                 deleteFlag(conn, playerId, key);
                 insertLog(conn, playerId, key, false, "UNSET", metadata);
             }
 
             conn.commit();
-        } catch (SQLException e) {
-            log.error("Fehler beim Setzen/Löschen von Flag '{}' für Spieler {}: {}",
+        }
+        catch (SQLException e) {
+            log.error("Error inserting/removing flag '{}' for player {}: {}",
                     key, playerId, e.getMessage(), e);
         }
     }
 
     /**
-     * Optionales Helper-API, falls du irgendwann alle Flags eines Spielers brauchst.
+     * Optional Helper-API. Returns all active flags for a player.
      */
     public synchronized Set<String> getFlags(UUID playerId) {
         String sql = "SELECT flag_key FROM " + TABLE_FLAGS + " WHERE player_id = ?";
@@ -223,12 +228,12 @@ public final class PlayerFlagStore {
             ps.setObject(1, playerId);
 
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
+                while (rs.next())
                     result.add(rs.getString(1));
-                }
             }
-        } catch (SQLException e) {
-            log.error("Fehler beim Lesen aller Flags für Spieler {}: {}", playerId, e.getMessage(), e);
+        }
+        catch (SQLException e) {
+            log.error("Error reading all flags of player {}: {}", playerId, e.getMessage(), e);
         }
 
         return result;
@@ -253,16 +258,16 @@ public final class PlayerFlagStore {
 
             ps.setString(3, source);
 
-            if (extraJson != null) {
+            if (extraJson != null)
                 ps.setString(4, extraJson);
-            } else {
+            else
                 ps.setNull(4, Types.VARCHAR);
-            }
 
             ps.executeUpdate();
         }
     }
 
+    /** Deletes a flag for a player. */
     private void deleteFlag(Connection conn, UUID playerId, String key) throws SQLException {
         String sql = "DELETE FROM " + TABLE_FLAGS + " WHERE player_id = ? AND flag_key = ?";
 
@@ -273,6 +278,7 @@ public final class PlayerFlagStore {
         }
     }
 
+    /** Inserts a log entry into player_flag_log. */
     private void insertLog(Connection conn, UUID playerId, String key,
                            boolean value, String action, FlagMetadata metadata) throws SQLException {
 
@@ -293,11 +299,10 @@ public final class PlayerFlagStore {
 
             ps.setString(5, source);
 
-            if (extraJson != null) {
+            if (extraJson != null)
                 ps.setString(6, extraJson);
-            } else {
+            else
                 ps.setNull(6, Types.VARCHAR);
-            }
 
             ps.executeUpdate();
         }

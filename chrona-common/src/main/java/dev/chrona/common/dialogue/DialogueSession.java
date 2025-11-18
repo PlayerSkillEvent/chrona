@@ -4,6 +4,7 @@ import dev.chrona.common.npc.api.NpcHandle;
 
 import java.util.UUID;
 
+/** Represents an active dialogue session between a player and an NPC. */
 public final class DialogueSession {
     private final UUID playerId;
     private final String dialogueId;
@@ -21,12 +22,30 @@ public final class DialogueSession {
         this.lastInteraction = System.currentTimeMillis();
     }
 
+    /** Returns the unique ID of the player in this session. */
     public UUID getPlayerId() { return playerId; }
+
+    /** Returns the ID of the dialogue being used in this session. */
     public String getDialogueId() { return dialogueId; }
+
+    /** Returns the unique session ID. */
     public String getSessionId() { return sessionId; }
+
+    /** Returns the NPC involved in this session. */
     public NpcHandle getNpc() { return npc; }
+
+    /** Returns the current node ID in the dialogue. */
     public String getCurrentNodeId() { return currentNodeId; }
-    public void setCurrentNodeId(String currentNodeId) { this.currentNodeId = currentNodeId; touch(); }
+
+    /** Sets the current node ID in the dialogue. */
+    public void setCurrentNodeId(String currentNodeId) {
+        this.currentNodeId = currentNodeId;
+        touch();
+    }
+
+    /** Returns the timestamp of the last interaction in milliseconds. */
     public long getLastInteraction() { return lastInteraction; }
+
+    /** Updates the last interaction timestamp to the current time. */
     public void touch() { this.lastInteraction = System.currentTimeMillis(); }
 }

@@ -35,12 +35,13 @@ public final class DialogueService {
         this.plugin = plugin;
         var baseDir = plugin.getDataFolder().toPath().resolve("dialogue");
         this.flagStore = new PlayerFlagStore(baseDir);
-        this.dialogues = new DialogueRegistry(plugin, baseDir);
+        this.dialogues = new DialogueRegistry(baseDir);
         this.npcBindings = new NpcDialogueRegistry(plugin, baseDir);
 
         registerDefaults();
     }
 
+    /* Registers the default dialogue conditions and actions. */
     private void registerDefaults() {
         conditions.register(new FlagSetCondition(flagStore, true));
         conditions.register(new FlagSetCondition(flagStore, false));
@@ -49,24 +50,31 @@ public final class DialogueService {
         actions.register(new RunCommandAction());
     }
 
+    /** Reloads all dialogue data from disk. */
     public void reload() {
         dialogues.reload();
         npcBindings.reload();
     }
 
+    /** Handles player interaction with an NPC. */
     public void handleNpcInteract(Player player, NpcHandle npc) {
         // if player already in dialogue: ignore / oder später "continue"
-        if (byPlayer.containsKey(player.getUniqueId())) return;
+        if (byPlayer.containsKey(player.getUniqueId()))
+            return;
 
         List<NpcDialogueBinding> bindings = npcBindings.getBindings(npc.name());
         for (NpcDialogueBinding b : bindings) {
-            if (b.getStartMode() != NpcDialogueBinding.StartMode.ON_INTERACT) continue;
-            if (!conditions.evaluateAll(player, npc, null, b.getConditions())) continue;
+            if (b.getStartMode() != NpcDialogueBinding.StartMode.ON_INTERACT)
+                continue;
+            if (!conditions.evaluateAll(player, npc, null, b.getConditions()))
+                continue;
+
             startDialogue(player, npc, b.getDialogueId());
             return;
         }
     }
 
+    /** Starts a dialogue for the given player and NPC. */
     public void startDialogue(Player player, NpcHandle npc, String dialogueId) {
         Dialogue d = dialogues.get(dialogueId);
         if (d == null) {
@@ -87,6 +95,7 @@ public final class DialogueService {
         showCurrentNode(player, session);
     }
 
+    /** Generates a random session ID. */
     private String randomId() {
         byte[] bytes = new byte[5];
         random.nextBytes(bytes);
@@ -98,6 +107,7 @@ public final class DialogueService {
         return sb.toString();
     }
 
+    /** Shows the current dialogue node to the player. */
     public void showCurrentNode(Player player, DialogueSession session) {
         Dialogue d = dialogues.get(session.getDialogueId());
         if (d == null) {
@@ -133,9 +143,8 @@ public final class DialogueService {
         // Text (multi-lang)
         List<String> lines = DialogueTextUtil.resolveText(node.getText(), player);
         if (lines != null) {
-            for (String line : lines) {
+            for (String line : lines)
                 player.sendMessage("§f" + line);
-            }
         }
 
         // End?
@@ -155,7 +164,8 @@ public final class DialogueService {
                 continue;
 
             String label = DialogueTextUtil.resolveChoiceText(choice.getText(), player);
-            if (label == null) continue;
+            if (label == null)
+                continue;
 
             Component line = Component.text(idx + ") ", NamedTextColor.GOLD)
                     .append(Component.text(label, NamedTextColor.WHITE))
@@ -171,6 +181,7 @@ public final class DialogueService {
         }
     }
 
+    /** Handles the player's choice selection. */
     public void choose(Player player, String sessionId, String choiceId) {
         DialogueSession session = bySessionId.get(sessionId);
         if (session == null || !session.getPlayerId().equals(player.getUniqueId())) {
@@ -222,13 +233,14 @@ public final class DialogueService {
         showCurrentNode(player, session);
     }
 
+    /** Ends the dialogue session for the given player ID. */
     public void endSession(UUID playerId) {
         DialogueSession session = byPlayer.remove(playerId);
-        if (session != null) {
+        if (session != null)
             bySessionId.remove(session.getSessionId());
-        }
     }
 
+    /** Ends the dialogue session for the given player. */
     public void endSessionFor(Player player) {
         endSession(player.getUniqueId());
     }
