@@ -8,6 +8,7 @@ import dev.chrona.common.npc.api.NpcPersistence;
 import dev.chrona.common.npc.api.SkinService;
 import dev.chrona.common.npc.protocol.NpcController;
 import dev.chrona.common.npc.protocol.ProtocolNpcs;
+import dev.chrona.common.region.*;
 import dev.chrona.economy.PgEconomy;
 import dev.chrona.economy.PlayerRepo;
 import dev.chrona.job.core.*;
@@ -24,6 +25,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import dev.chrona.common.Db;
 
 import javax.sql.DataSource;
+import java.io.File;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,6 +39,8 @@ public final class ChronaPlugin extends JavaPlugin {
     private NpcController npcCtrl;
     private NpcPersistence persistence;
     private DialogueService dialogueService;
+    private RegionService regionService;
+    private RegionVisitLogService regionVisitLogService;
 
     @Override
     public void onEnable() {
@@ -75,6 +79,9 @@ public final class ChronaPlugin extends JavaPlugin {
         }, 1200L, 1200L);
 
         this.dialogueService = new DialogueService(this);
+
+        initRegions();
+        initRegionLogging();
 
         registerCommand("wallet", new WalletCmd(econ));
         registerCommand("pay", new PayCmd(econ));
@@ -152,4 +159,32 @@ public final class ChronaPlugin extends JavaPlugin {
     }
 
     public DialogueService getDialogueService() { return dialogueService; }
+
+    public RegionService getRegionService() {
+        return regionService;
+    }
+
+    public RegionVisitLogService getRegionVisitLogService() {
+        return regionVisitLogService;
+    }
+
+    private void initRegions() {
+        File regionsFile = new File(getDataFolder(), "regions.yml");
+        if (!regionsFile.exists())
+            saveResource("regions.yml", false); // optional default
+
+        List<Region> regions = RegionConfigLoader.loadFromFile(regionsFile);
+
+        regionService = new RegionService(this);
+        regionService.setRegions(regions);
+        getServer().getPluginManager().registerEvents(regionService, this);
+
+        RegionApi.init(regionService);
+    }
+
+    private void initRegionLogging() {
+        regionVisitLogService = new RegionVisitLogService(this);
+        RegionVisitLogListener listener = new RegionVisitLogListener(regionVisitLogService);
+        getServer().getPluginManager().registerEvents(listener, this);
+    }
 }
